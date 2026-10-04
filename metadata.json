@@ -1,0 +1,10 @@
+{
+  "name": "Remix Sistema de Asistencia Escolar RFID",
+  "description": "Sistema de registro y control de asistencia escolar en tiempo real con tecnología RFID ESP8266, base de datos SQLite y modo de asignación de tarjetas.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
