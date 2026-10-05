@@ -39,7 +39,7 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
     setProgress(100);
 
     const startTime = Date.now();
-    const duration = 6000; // 6 seconds display for development testing
+    const duration = 7000; // 7 seconds display for scanning notification
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
