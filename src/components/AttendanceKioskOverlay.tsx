@@ -34,8 +34,15 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
   const horaEntradaDefault = appSettings?.hora_entrada || '08:30';
   const minutosTolerancia = Number(appSettings?.minutos_tolerancia) || 10;
 
+  const lecturaId = lectura?.id;
+  const onCloseRef = React.useRef(onClose);
+
   useEffect(() => {
-    if (!lectura) return;
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!lecturaId) return;
     setProgress(100);
 
     const startTime = Date.now();
@@ -47,12 +54,12 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
       setProgress(remainingPct);
       if (elapsed >= duration) {
         clearInterval(interval);
-        onClose();
+        onCloseRef.current();
       }
     }, 50);
 
     return () => clearInterval(interval);
-  }, [lectura, onClose]);
+  }, [lecturaId]);
 
   if (!lectura) return null;
 
