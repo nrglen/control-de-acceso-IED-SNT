@@ -1,9 +1,102 @@
 import initSqlJs, { Database } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
+import pg from 'pg';
+const { Client } = pg;
 
 let db: Database;
 const DB_PATH = path.join(process.cwd(), 'asistencia.db');
+
+async function loadFromPostgres(): Promise<Buffer | null> {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.log('[PG Sync] DATABASE_URL no encontrada. Se usará el almacenamiento local únicamente.');
+    return null;
+  }
+  
+  console.log('[PG Sync] Conexión DATABASE_URL detectada. Sincronizando copia de seguridad en la nube...');
+  const client = new Client({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+  
+  try {
+    await client.connect();
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sqlite_backup (
+        id INT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    const res = await client.query('SELECT data FROM sqlite_backup WHERE id = 1');
+    if (res.rows.length > 0) {
+      const base64Data = res.rows[0].data;
+      console.log('[PG Sync] Copia de seguridad encontrada en la nube, tamaño:', base64Data.length, 'caracteres.');
+      return Buffer.from(base64Data, 'base64');
+    } else {
+      console.log('[PG Sync] No se encontró copia de seguridad previa en la nube (instalación nueva).');
+    }
+  } catch (err) {
+    console.error('[PG Sync] Error al descargar base de datos de Postgres:', err);
+  } finally {
+    try { await client.end(); } catch (e) {}
+  }
+  return null;
+}
+
+let isSavingToPg = false;
+let pendingSaveToPg = false;
+
+async function saveToPostgresAsync(buffer: Buffer) {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return;
+  
+  if (isSavingToPg) {
+    pendingSaveToPg = true;
+    return;
+  }
+  
+  isSavingToPg = true;
+  const client = new Client({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+  
+  try {
+    await client.connect();
+    const base64Data = buffer.toString('base64');
+    
+    await client.query(`
+      INSERT INTO sqlite_backup (id, data, updated_at)
+      VALUES (1, $1, CURRENT_TIMESTAMP)
+      ON CONFLICT (id) DO UPDATE
+      SET data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP;
+    `, [base64Data]);
+    
+    console.log('[PG Sync] Base de datos guardada y respaldada exitosamente en la nube (Postgres).');
+  } catch (err) {
+    console.error('[PG Sync] Error al subir copia de seguridad a Postgres:', err);
+  } finally {
+    try { await client.end(); } catch (e) {}
+    isSavingToPg = false;
+    if (pendingSaveToPg) {
+      pendingSaveToPg = false;
+      try {
+        if (fs.existsSync(DB_PATH)) {
+          const freshBuffer = fs.readFileSync(DB_PATH);
+          saveToPostgresAsync(freshBuffer);
+        }
+      } catch (e) {}
+    }
+  }
+}
 
 export const HORA_OFICIAL_ENTRADA = '08:30';
 export const HORA_LIMITE_PUNTUALIDAD = '08:40';
@@ -118,6 +211,17 @@ export interface Lectura {
 
 export async function initDatabase() {
   const SQL = await initSqlJs();
+
+  // Descargar base de datos más reciente de Postgres cloud si existe
+  try {
+    const pgBackup = await loadFromPostgres();
+    if (pgBackup) {
+      fs.writeFileSync(DB_PATH, pgBackup);
+      console.log('[PG Sync] Restaurado local db desde copia de seguridad de Postgres en la nube.');
+    }
+  } catch (err) {
+    console.error('[PG Sync] Error al guardar el backup descargado de Postgres:', err);
+  }
 
   if (fs.existsSync(DB_PATH)) {
     try {
@@ -304,58 +408,91 @@ export async function initDatabase() {
   if (countRow && countRow.count === 0) {
     const defaultStudents = [
       {
-        uid: '8B6FD934',
+        uid: 'B4C91305',
         codigo: 'EST-601-001',
-        nombre: 'Sofía Martínez Reyes',
+        nombre: 'Victoria Santiago Morron',
         grado: '6° - 1',
-        correo: 'sofia.martinez@sannicolas.edu.co',
-        acudiente_nombre: 'Patricia Reyes Mendoza',
-        acudiente_contacto: '+57 315 889 4421',
-        acudiente_correo: 'patricia.reyes.mendoza@gmail.com',
+        correo: 'victoria.santiago@sannicolas.edu.co',
+        acudiente_nombre: 'Marla Morron',
+        acudiente_contacto: '3135710894',
+        acudiente_correo: 'Marlamorron2018@gmail.com',
         foto: null
       },
       {
-        uid: 'B21890EF',
+        uid: 'D9E04A07',
         codigo: 'EST-601-002',
-        nombre: 'Carlos Daniel Mendoza',
+        nombre: 'Evangelyn Blanco Gonzalez',
         grado: '6° - 1',
-        correo: 'carlos.mendoza@sannicolas.edu.co',
-        acudiente_nombre: 'Roberto Mendoza Soler',
-        acudiente_contacto: '+57 311 445 7712',
-        acudiente_correo: 'roberto.mendoza.soler@gmail.com',
+        correo: 'evangelyn.blanco@sannicolas.edu.co',
+        acudiente_nombre: 'Katherine Gonzalez',
+        acudiente_contacto: '3043894541',
+        acudiente_correo: 'kate.30.gonzalezbarreto@gmail.com',
         foto: null
       },
       {
-        uid: 'C77410A1',
+        uid: 'D3AD4B07',
         codigo: 'EST-601-003',
-        nombre: 'Valentina Gómez Peña',
+        nombre: 'Shadia Hernandez Martinez',
         grado: '6° - 1',
-        correo: 'valentina.gomez@sannicolas.edu.co',
-        acudiente_nombre: 'Elena Peña Vargas',
-        acudiente_contacto: '+57 320 667 8901',
-        acudiente_correo: 'elena.pena.vargas@gmail.com',
+        correo: 'shadia.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'ARILEDYS MARTINEZ HERNANDEZ',
+        acudiente_contacto: '3013012510',
+        acudiente_correo: 'ariledysmartinez@hotmail.com',
         foto: null
       },
       {
-        uid: 'D59021B3',
+        uid: 'A39A4B07',
         codigo: 'EST-601-004',
-        nombre: 'Mateo Alejandro Silva',
+        nombre: 'Angelina Hernández Hernández',
         grado: '6° - 1',
-        correo: 'mateo.silva@sannicolas.edu.co',
-        acudiente_nombre: 'Jorge Silva Duarte',
-        acudiente_contacto: '+57 300 223 9988',
-        acudiente_correo: 'jorge.silva.duarte@gmail.com',
+        correo: 'angelina.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'Fairuth Hernandez Correa',
+        acudiente_contacto: '3154261103',
+        acudiente_correo: 'fairuthhernandez8@gmail.com',
         foto: null
       },
       {
-        uid: 'E821034A',
+        uid: '3C2E4807',
         codigo: 'EST-601-005',
-        nombre: 'Lucía Fernández Castillo',
+        nombre: 'Ángeles Herrera Rodelo',
         grado: '6° - 1',
-        correo: 'lucia.fernandez@sannicolas.edu.co',
-        acudiente_nombre: 'Carmen Castillo Romero',
-        acudiente_contacto: '+57 318 554 1123',
-        acudiente_correo: 'carmen.castillo.romero@gmail.com',
+        correo: 'angeles.herrera@sannicolas.edu.co',
+        acudiente_nombre: 'Luz Rodelo',
+        acudiente_contacto: '3217208933',
+        acudiente_correo: 'Luzmerylu@gmail.com',
+        foto: null
+      },
+      {
+        uid: 'F4244B07',
+        codigo: 'EST-601-006',
+        nombre: 'Isabel Acevedo Martínez',
+        grado: '6° - 1',
+        correo: 'isabel.acevedo@sannicolas.edu.co',
+        acudiente_nombre: 'María Camila Serje Maury',
+        acudiente_contacto: '3014878651',
+        acudiente_correo: 'serjemaurycamila@gmail.com',
+        foto: null
+      },
+      {
+        uid: 'B5554B07',
+        codigo: 'EST-601-007',
+        nombre: 'Luna shairet polo bolivar',
+        grado: '6° - 1',
+        correo: 'luna.polo@sannicolas.edu.co',
+        acudiente_nombre: 'Kandy Patricia bolivar Fajardo',
+        acudiente_contacto: '3015956179',
+        acudiente_correo: 'kandy0612@hotmail.com',
+        foto: null
+      },
+      {
+        uid: 'AC9B4B07',
+        codigo: 'EST-601-008',
+        nombre: 'Maria José Hernández Valest',
+        grado: '6° - 1',
+        correo: 'maria.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'Lenny Valest',
+        acudiente_contacto: '3188335000',
+        acudiente_correo: 'lennyvalest@gmail.com',
         foto: null
       }
     ];
@@ -379,6 +516,10 @@ export function saveDb() {
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(DB_PATH, buffer);
+    // Realizar copia de seguridad asíncrona en la nube de Postgres de fondo
+    saveToPostgresAsync(buffer).catch(err => {
+      console.error('[PG Sync] Error en el guardado asíncrono en la nube:', err);
+    });
   } catch (err) {
     console.error('Error saving database to file:', err);
   }

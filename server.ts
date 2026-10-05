@@ -87,17 +87,7 @@ const logoUpload = multer({
 
 // Helper to save base64 photo (e.g. from camera)
 function saveBase64Photo(dataUrl: string): string | null {
-  try {
-    const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return null;
-    const buffer = Buffer.from(matches[2], 'base64');
-    const filename = `cam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.jpg`;
-    fs.writeFileSync(path.join(fotosDir, filename), buffer);
-    return `/static/fotos/${filename}`;
-  } catch (err) {
-    console.error('Error saving base64 photo:', err);
-    return null;
-  }
+  return dataUrl; // Keep base64 image data directly in the database for 100% cloud persistence
 }
 
 // Global System Modes
@@ -757,9 +747,17 @@ app.post('/api/estudiantes', upload.single('foto'), (req: Request, res: Response
 
     let fotoUrl: string | null = null;
     if (req.file) {
-      fotoUrl = `/static/fotos/${req.file.filename}`;
+      try {
+        const filePath = path.join(fotosDir, req.file.filename);
+        const fileData = fs.readFileSync(filePath);
+        fotoUrl = `data:image/jpeg;base64,${fileData.toString('base64')}`;
+        fs.unlinkSync(filePath); // Delete from ephemeral filesystem
+      } catch (e) {
+        console.error('Error converting file to base64:', e);
+        fotoUrl = `/static/fotos/${req.file.filename}`;
+      }
     } else if (req.body.foto_base64) {
-      fotoUrl = saveBase64Photo(req.body.foto_base64);
+      fotoUrl = req.body.foto_base64;
     } else if (req.body.foto && typeof req.body.foto === 'string') {
       fotoUrl = req.body.foto;
     }
@@ -836,9 +834,17 @@ app.put('/api/estudiantes/:id', upload.single('foto'), (req: Request, res: Respo
 
     let fotoUrl = existing.foto;
     if (req.file) {
-      fotoUrl = `/static/fotos/${req.file.filename}`;
+      try {
+        const filePath = path.join(fotosDir, req.file.filename);
+        const fileData = fs.readFileSync(filePath);
+        fotoUrl = `data:image/jpeg;base64,${fileData.toString('base64')}`;
+        fs.unlinkSync(filePath); // Delete from ephemeral filesystem
+      } catch (e) {
+        console.error('Error converting file to base64:', e);
+        fotoUrl = `/static/fotos/${req.file.filename}`;
+      }
     } else if (req.body.foto_base64) {
-      fotoUrl = saveBase64Photo(req.body.foto_base64);
+      fotoUrl = req.body.foto_base64;
     } else if (req.body.foto !== undefined) {
       fotoUrl = req.body.foto || null;
     }
