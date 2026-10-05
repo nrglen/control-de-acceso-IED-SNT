@@ -403,6 +403,19 @@ export async function initDatabase() {
     );
   }
 
+  // Migración: Eliminar estudiantes de prueba antiguos para forzar la carga de los 8 oficiales
+  try {
+    const dummyExists = queryOne("SELECT id FROM estudiantes WHERE uid IN ('8B6FD934', 'B21890EF', 'C77410A1', 'D59021B3', 'E821034A')");
+    if (dummyExists) {
+      console.log('[PG Sync] Encontrados estudiantes de prueba antiguos. Eliminando para cargar la lista oficial...');
+      run("DELETE FROM asistencias WHERE estudiante_id IN (SELECT id FROM estudiantes WHERE uid IN ('8B6FD934', 'B21890EF', 'C77410A1', 'D59021B3', 'E821034A'))");
+      run("DELETE FROM lecturas WHERE uid IN ('8B6FD934', 'B21890EF', 'C77410A1', 'D59021B3', 'E821034A')");
+      run("DELETE FROM estudiantes WHERE uid IN ('8B6FD934', 'B21890EF', 'C77410A1', 'D59021B3', 'E821034A')");
+    }
+  } catch (e) {
+    console.error('Error al limpiar estudiantes antiguos:', e);
+  }
+
   // Seed default students if empty
   const countRow = queryOne('SELECT COUNT(*) as count FROM estudiantes');
   if (countRow && countRow.count === 0) {
