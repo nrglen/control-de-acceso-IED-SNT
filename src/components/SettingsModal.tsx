@@ -25,7 +25,9 @@ import {
   Sparkles,
   HelpCircle,
   Laptop,
-  Server
+  Server,
+  Mail,
+  MessageSquare
 } from 'lucide-react';
 import { AppSettings, DiaHorario } from '../types';
 
@@ -35,6 +37,8 @@ interface Props {
   currentSettings: AppSettings;
   onSaveSettings: (newSettings: Partial<AppSettings>) => Promise<boolean>;
   onLogoUploaded?: (newLogoUrl: string) => void;
+  onOpenParentNotifications?: () => void;
+  onOpenEmailConfig?: () => void;
 }
 
 export const DEFAULT_HORARIOS: DiaHorario[] = [
@@ -47,14 +51,16 @@ export const DEFAULT_HORARIOS: DiaHorario[] = [
   { dia: 'domingo', nombreDia: 'Domingo', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' }
 ];
 
-type TabType = 'identidad' | 'horarios' | 'academico' | 'esp8266' | 'seguridad';
+type TabType = 'identidad' | 'horarios' | 'academico' | 'esp8266' | 'seguridad' | 'notificaciones';
 
 export const SettingsModal: React.FC<Props> = ({
   isOpen,
   onClose,
   currentSettings,
   onSaveSettings,
-  onLogoUploaded
+  onLogoUploaded,
+  onOpenParentNotifications,
+  onOpenEmailConfig
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('identidad');
   const [form, setForm] = useState<AppSettings>(() => ({
@@ -220,6 +226,21 @@ export const SettingsModal: React.FC<Props> = ({
     });
   };
 
+  const handleHoraFinalizacionDiaChange = (diaKey: string, hora: string) => {
+    setForm((prev) => {
+      const list = prev.horarios_semanales && prev.horarios_semanales.length > 0
+        ? prev.horarios_semanales
+        : DEFAULT_HORARIOS;
+      const updated = list.map((item) => {
+        if (item.dia === diaKey) {
+          return { ...item, hora_finalizacion: hora };
+        }
+        return item;
+      });
+      return { ...prev, horarios_semanales: updated };
+    });
+  };
+
   const handleToleranciaDiaChange = (diaKey: string, tol: number) => {
     setForm((prev) => {
       const list = prev.horarios_semanales && prev.horarios_semanales.length > 0
@@ -247,11 +268,15 @@ export const SettingsModal: React.FC<Props> = ({
         let activo = false;
         let hora = item.hora_entrada || baseHora;
         let tol = item.minutos_tolerancia !== undefined ? item.minutos_tolerancia : baseTol;
+        let horaFin = item.hora_finalizacion || '14:00';
 
         if (preset === 'lunes-jueves') {
           activo = item.dia === 'lunes' || item.dia === 'jueves';
           if (item.dia === 'lunes') hora = '08:30';
-          if (item.dia === 'jueves') hora = '10:00';
+          if (item.dia === 'jueves') {
+            hora = '10:00';
+            horaFin = '16:00';
+          }
         } else if (preset === 'lunes-viernes') {
           activo = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].includes(item.dia);
         } else if (preset === 'lunes-miercoles-viernes') {
@@ -265,7 +290,8 @@ export const SettingsModal: React.FC<Props> = ({
           activo,
           hora_entrada: hora,
           minutos_tolerancia: tol,
-          hora_limite: calcularHoraLimite(hora, tol)
+          hora_limite: calcularHoraLimite(hora, tol),
+          hora_finalizacion: horaFin
         };
       });
       return { ...prev, horarios_semanales: updated };
@@ -277,6 +303,7 @@ export const SettingsModal: React.FC<Props> = ({
       const baseHora = prev.hora_entrada || '08:30';
       const baseTol = Number(prev.minutos_tolerancia) || 10;
       const baseLim = calcularHoraLimite(baseHora, baseTol);
+      const baseFin = prev.hora_finalizacion || '14:00';
       const list = prev.horarios_semanales && prev.horarios_semanales.length > 0
         ? prev.horarios_semanales
         : DEFAULT_HORARIOS;
@@ -286,7 +313,8 @@ export const SettingsModal: React.FC<Props> = ({
           ...item,
           hora_entrada: baseHora,
           minutos_tolerancia: baseTol,
-          hora_limite: baseLim
+          hora_limite: baseLim,
+          hora_finalizacion: baseFin
         };
       });
       return { ...prev, horarios_semanales: updated };
@@ -597,6 +625,19 @@ export const SettingsModal: React.FC<Props> = ({
             <Shield className="w-4 h-4 text-blue-600" />
             <span>Seguridad & Clave</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('notificaciones')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'notificaciones'
+                ? 'bg-white text-red-700 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+            }`}
+          >
+            <Mail className="w-4 h-4 text-emerald-600" />
+            <span>WhatsApp y Correo</span>
+          </button>
         </div>
 
         {/* Modal Body Forms */}
@@ -873,7 +914,7 @@ export const SettingsModal: React.FC<Props> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Hora Oficial Base */}
                   <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
@@ -887,7 +928,24 @@ export const SettingsModal: React.FC<Props> = ({
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono font-black text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                     />
                     <p className="text-[11px] text-slate-400">
-                      Hora estándar de referencia (ejemplo: <strong>08:30 AM</strong>).
+                      Hora estándar de entrada (ejemplo: <strong>08:30 AM</strong>).
+                    </p>
+                  </div>
+
+                  {/* Hora de Finalización Base */}
+                  <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                      Hora de Finalización Base *
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={form.hora_finalizacion || '14:00'}
+                      onChange={(e) => setForm({ ...form, hora_finalizacion: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono font-black text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Hora estándar de finalización (ejemplo: <strong>14:00</strong>).
                     </p>
                   </div>
 
@@ -1000,6 +1058,18 @@ export const SettingsModal: React.FC<Props> = ({
                                   type="time"
                                   value={item.hora_entrada}
                                   onChange={(e) => handleHoraDiaChange(item.dia, e.target.value)}
+                                  className="bg-white border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
+                                  Hora Salida:
+                                </label>
+                                <input
+                                  type="time"
+                                  value={item.hora_finalizacion || '14:00'}
+                                  onChange={(e) => handleHoraFinalizacionDiaChange(item.dia, e.target.value)}
                                   className="bg-white border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                                 />
                               </div>
@@ -1575,6 +1645,75 @@ export const SettingsModal: React.FC<Props> = ({
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* TAB 6: NOTIFICACIONES (WHATSAPP Y CORREO)                   */}
+          {/* ============================================================ */}
+          {activeTab === 'notificaciones' && (
+            <div className="space-y-6">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200">
+                  <Mail className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                    Notificaciones a Padres (WhatsApp y Correo)
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Administra y configura los canales de notificación automática para informar a los padres de familia cuando sus hijos ingresen a la institución o si registran alguna inasistencia.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  {/* WhatsApp Config Card */}
+                  <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-3.5 flex flex-col justify-between shadow-xs">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 font-black text-sm text-emerald-700">
+                        <MessageSquare className="w-5 h-5 text-emerald-600" />
+                        <span>Notificaciones por WhatsApp</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Envía mensajes automáticos directamente al número de contacto de los acudientes con plantillas personalizadas de asistencia.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenParentNotifications) onOpenParentNotifications();
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/10"
+                    >
+                      <MessageSquare className="w-4 h-4 text-amber-300" />
+                      <span>Abrir Panel de WhatsApp</span>
+                    </button>
+                  </div>
+
+                  {/* Email Config Card */}
+                  <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-3.5 flex flex-col justify-between shadow-xs">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 font-black text-sm text-red-700">
+                        <Mail className="w-5 h-5 text-red-600" />
+                        <span>Notificaciones por Correo Electrónico</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Configura tu servidor de correo SMTP (Gmail, Outlook, etc.) para despachar alertas de entrada tarde e inasistencias de manera automatizada.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenEmailConfig) onOpenEmailConfig();
+                      }}
+                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Mail className="w-4 h-4 text-amber-400" />
+                      <span>Abrir Panel de Correo</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

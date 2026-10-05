@@ -13,7 +13,7 @@ import { Estudiante, Asistencia, Lectura, ModoInfo, SystemStats, AppSettings } f
 import { playScanSound } from './utils/audio';
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'asistencia' | 'estudiantes' | 'hardware'>('asistencia');
+  const [currentTab, setCurrentTab] = useState<'asistencia' | 'estudiantes'>('asistencia');
   const [showSimulator, setShowSimulator] = useState(true);
 
   // App Customization Settings State
@@ -271,7 +271,7 @@ export default function App() {
   };
 
   // Handle Tab Navigation with simple password protection
-  const handleSelectTab = (tab: 'asistencia' | 'estudiantes' | 'hardware') => {
+  const handleSelectTab = (tab: 'asistencia' | 'estudiantes') => {
     if (tab === 'estudiantes' && !isAdminAuth) {
       setPendingAction('estudiantes');
       setShowAuthModal(true);
@@ -353,6 +353,8 @@ export default function App() {
         onLogoUploaded={(newLogoUrl) => {
           setAppSettings((prev) => ({ ...prev, logo_url: newLogoUrl }));
         }}
+        onOpenParentNotifications={() => setShowParentNotificationsModal(true)}
+        onOpenEmailConfig={() => setShowEmailConfigModal(true)}
       />
 
       {/* Parent Notifications & WhatsApp Center Modal */}
@@ -377,8 +379,6 @@ export default function App() {
         showSimulator={false}
         onToggleSimulator={() => setShowSimulator(false)}
         pendingCardUid={pendingCardUid}
-        onOpenParentNotifications={() => setShowParentNotificationsModal(true)}
-        onOpenEmailConfig={() => setShowEmailConfigModal(true)}
         appSettings={appSettings}
         onOpenSettings={handleOpenSettings}
       />
@@ -419,8 +419,6 @@ export default function App() {
             lastLecturaState={lastLecturaState}
           />
         )}
-
-        {currentTab === 'hardware' && <HardwareGuideModal />}
       </main>
 
       {/* Institutional Footer */}

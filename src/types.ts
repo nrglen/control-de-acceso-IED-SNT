@@ -5,6 +5,7 @@ export interface DiaHorario {
   hora_entrada: string; // ej: "08:30"
   minutos_tolerancia: number; // ej: 10
   hora_limite?: string; // calculado "08:40"
+  hora_finalizacion?: string; // ej: "14:00"
 }
 
 export interface AppSettings {
@@ -22,6 +23,7 @@ export interface AppSettings {
   wifi_ssid_default?: string;
   wifi_pass_default?: string;
   horarios_semanales?: DiaHorario[]; // Días y horas específicas en la semana
+  hora_finalizacion?: string; // ej: "14:00" (hora de salida)
 }
 
 export interface Estudiante {

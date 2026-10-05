@@ -2,28 +2,19 @@ import React, { useState } from 'react';
 import { 
   Users, 
   Calendar, 
-  MapPin, 
   Search, 
   Download, 
-  Printer, 
   CheckCircle2, 
   Clock, 
   UserCheck, 
-  BookOpen, 
   Table as TableIcon,
   LayoutGrid,
   RefreshCw,
   Eye,
-  GraduationCap,
   AlertTriangle,
   PlusCircle,
-  Radio,
-  FileCheck,
-  MessageSquare,
   Mail,
-  Send,
-  UserX,
-  Sparkles
+  MessageSquare
 } from 'lucide-react';
 import { Asistencia, SystemStats, Estudiante, AppSettings } from '../types';
 import { StudentDetailModal } from './StudentDetailModal';
@@ -50,194 +41,180 @@ export const AttendanceView: React.FC<Props> = ({
   students,
   selectedDate,
   onDateChange,
-  selectedSalon,
-  onSalonChange,
   onRefresh,
   isLoading,
   appSettings
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAsignatura, setSelectedAsignatura] = useState<string>('todas');
+  const [colorFilter, setColorFilter] = useState<'todos' | 'verde' | 'amarillo' | 'rojo'>('todos');
   const [viewMode, setViewMode] = useState<'tabla' | 'tarjetas'>('tabla');
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Estudiante | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [emailStatusMsg, setEmailStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  const nombreColegio = appSettings?.nombre_colegio || 'I.E. San Nicolás de Tolentino';
+  const nombreColegio = appSettings?.nombre_colegio || 'I.E. SAN NICOLÁS DE TOLENTINO';
   const grado = appSettings?.grado || '6° - 1';
   const salon = appSettings?.salon || 'Salón de Informática';
   const asignatura = appSettings?.asignatura || 'Informática y Tecnología';
   const profesor = appSettings?.profesor || 'Prof. Roberto Gómez';
   const horaEntrada = appSettings?.hora_entrada || '08:30';
   const horaLimite = appSettings?.hora_limite || '08:40';
+  const horaFinalizacion = appSettings?.hora_finalizacion || '14:00';
 
-  // Absence notification states
-  const [isNotifyingAbsences, setIsNotifyingAbsences] = useState(false);
-  const [absenceNoticeMsg, setAbsenceNoticeMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [sendingStudentId, setSendingStudentId] = useState<number | null>(null);
+  // Build a complete list of students with their attendance states for the selected date
+  const studentsAttendanceList = students.map((student) => {
+    const attendance = asistencias.find(
+      (a) => a.estudiante_id === student.id && a.fecha === selectedDate
+    );
+    const isPresent = !!attendance;
+    const isLate = isPresent && (attendance.minutos_retraso || 0) > 0;
 
-  // Available subjects
-  const asignaturas = [
-    'Matemáticas',
-    'Física',
-    'Química',
-    'Español y Literatura',
-    'Inglés',
-    'Historia y Ciencias Sociales',
-    'Informática y Tecnología',
-    'Biología'
-  ];
+    let status: 'verde' | 'amarillo' | 'rojo' = 'rojo';
+    if (isPresent) {
+      status = isLate ? 'amarillo' : 'verde';
+    }
 
-  // Filter attendances
-  const filteredAsistencias = asistencias.filter((item) => {
-    const q = searchTerm.toLowerCase();
-    const nameMatch = item.nombre?.toLowerCase().includes(q) || false;
-    const gradeMatch = item.grado?.toLowerCase().includes(q) || false;
-    const uidMatch = item.uid?.toLowerCase().includes(q) || false;
-    const codigoMatch = item.codigo?.toLowerCase().includes(q) || false;
-    const profMatch = (item.profesor || '').toLowerCase().includes(q);
-    const subjectMatch = selectedAsignatura === 'todas' || (item.asignatura || 'General').toLowerCase() === selectedAsignatura.toLowerCase();
-    return (nameMatch || gradeMatch || uidMatch || codigoMatch || profMatch) && subjectMatch;
+    return {
+      student,
+      attendance,
+      status,
+      isPresent,
+      isLate,
+    };
   });
 
-  const totalStudents = students.length || stats?.totalEstudiantes || 0;
-  const presentStudents = filteredAsistencias.length;
-  const attendanceRate = totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0;
-  const totalRetrasos = filteredAsistencias.filter((a) => (a.minutos_retraso || 0) > 0).length;
+  // Filter list by search term and selected color status
+  const filteredStudentsList = studentsAttendanceList.filter((item) => {
+    const q = searchTerm.toLowerCase();
+    const nameMatch = item.student.nombre.toLowerCase().includes(q) || 
+                      (item.student.codigo || '').toLowerCase().includes(q) || 
+                      item.student.uid.toLowerCase().includes(q);
+    const colorMatch = colorFilter === 'todos' || item.status === colorFilter;
+    return nameMatch && colorMatch;
+  });
 
-  // Identify absent students for selected date
-  const presentStudentIds = new Set(asistencias.map((a) => a.estudiante_id));
-  const absentStudentsList = students.filter((s) => !presentStudentIds.has(s.id));
+  const totalCount = studentsAttendanceList.length;
+  const presentCount = studentsAttendanceList.filter(s => s.isPresent).length;
+  const punctualCount = studentsAttendanceList.filter(s => s.status === 'verde').length;
+  const lateCount = studentsAttendanceList.filter(s => s.status === 'amarillo').length;
+  const absentCount = studentsAttendanceList.filter(s => s.status === 'rojo').length;
+  const attendanceRate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
-  // Handle Bulk Notification for Absent Students
-  const handleNotifyAllAbsences = async () => {
-    if (absentStudentsList.length === 0) return;
-    setIsNotifyingAbsences(true);
-    setAbsenceNoticeMsg(null);
-    try {
-      const res = await fetch('/api/email/notify-absences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fecha: selectedDate,
-          hora_limite: '08:40 AM',
-          salon: 'Salón de Informática',
-          asignatura: 'Informática y Tecnología',
-          profesor: 'Prof. Roberto Gómez'
-        })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setAbsenceNoticeMsg({ type: 'ok', text: data.message });
-      } else {
-        setAbsenceNoticeMsg({ type: 'err', text: data.message || 'Error al enviar alertas' });
-      }
-    } catch (err: any) {
-      setAbsenceNoticeMsg({ type: 'err', text: err.message || 'Error de conexión' });
-    } finally {
-      setIsNotifyingAbsences(false);
-    }
-  };
-
-  // Handle Single Absence Notification
-  const handleNotifySingleAbsence = async (student: Estudiante, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setSendingStudentId(student.id);
-    setAbsenceNoticeMsg(null);
-    try {
-      const res = await fetch('/api/email/send-absence-single', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          estudiante_id: student.id,
-          fecha: selectedDate,
-          hora_limite: '08:40 AM',
-          salon: 'Salón de Informática',
-          asignatura: 'Informática y Tecnología',
-          profesor: 'Prof. Roberto Gómez'
-        })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setAbsenceNoticeMsg({ type: 'ok', text: `✓ Alerta de inasistencia enviada al acudiente de ${student.nombre}` });
-      } else {
-        setAbsenceNoticeMsg({ type: 'err', text: data.message || 'Error al enviar alerta' });
-      }
-    } catch (err: any) {
-      setAbsenceNoticeMsg({ type: 'err', text: err.message || 'Error de conexión' });
-    } finally {
-      setSendingStudentId(null);
-    }
-  };
-
-  // Open detail modal for clicked attendance item
-  const handleOpenDetail = (item: Asistencia) => {
-    const est: Estudiante = {
-      id: item.estudiante_id,
-      codigo: item.codigo || `EST-${item.estudiante_id.toString().padStart(4, '0')}`,
-      uid: item.uid,
-      nombre: item.nombre,
-      grado: item.grado,
-      correo: item.correo,
-      acudiente_nombre: item.acudiente_nombre,
-      acudiente_contacto: item.acudiente_contacto,
-      acudiente_correo: item.acudiente_correo,
-      foto: item.foto
-    };
-    setSelectedStudentForDetail(est);
+  // Open detail modal for clicked student
+  const handleOpenDetail = (student: Estudiante) => {
+    setSelectedStudentForDetail(student);
   };
 
   // Direct WhatsApp notification to parent
-  const handleNotifyWhatsApp = (item: Asistencia, e?: React.MouseEvent) => {
+  const handleNotifyWhatsApp = (student: Estudiante, attendance: Asistencia, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const esTarde = (item.minutos_retraso || 0) > 0;
-    const cleanPhone = (item.acudiente_contacto || '').replace(/[^0-9]/g, '');
+    const esTarde = (attendance.minutos_retraso || 0) > 0;
+    const cleanPhone = (student.acudiente_contacto || '').replace(/[^0-9]/g, '');
     const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
-    const msg = `🏫 *Colegio San Nicolás de Tolentino - Asistencia 6° - 1*\nEstimado(a) *${item.acudiente_nombre || 'Acudiente'}*,\nLe confirmamos que su hijo(a) *${item.nombre}* ha registrado su asistencia en el *Salón de Informática* hoy a las *${item.hora}*.\n📌 *Estado:* ${!esTarde ? '✅ Puntual (A tiempo)' : `⚠️ Entrada con retraso (+${item.minutos_retraso} min)`}\n👨‍🏫 *Docente:* Prof. Roberto Gómez - Informática y Tecnología`;
+    const msg = `🏫 *${nombreColegio} - Control de Asistencia*\nEstimado(a) *${student.acudiente_nombre || 'Acudiente'}*,\nLe confirmamos que su hijo(a) *${student.nombre}* ha registrado su asistencia en el *${salon}* hoy a las *${attendance.hora}*.\n📌 *Estado:* ${!esTarde ? '✅ Puntual (A tiempo)' : `⚠️ Entrada con retraso (+${attendance.minutos_retraso} min)`}\n👨‍🏫 *Docente:* ${profesor} - ${asignatura}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (filteredAsistencias.length === 0) return;
-    const headers = [
-      'ID', 
-      'Codigo Estudiante', 
-      'Nombre Completo', 
-      'Grado', 
-      'Salon', 
-      'Asignatura', 
-      'Profesor',
-      'Hora Programada',
-      'Hora Llegada',
-      'Minutos de Retraso',
-      'Metodo de Registro',
-      'Observaciones',
-      'UID Tarjeta', 
-      'Fecha'
-    ];
-    const rows = filteredAsistencias.map((a) => [
-      a.id,
-      `"${a.codigo || ''}"`,
-      `"${a.nombre || ''}"`,
-      `"${a.grado || ''}"`,
-      `"${a.salon || ''}"`,
-      `"${a.asignatura || 'Matemáticas'}"`,
-      `"${a.profesor || 'Prof. Asignado'}"`,
-      `"${a.hora_programada || '07:00'}"`,
-      a.hora,
-      a.minutos_retraso || 0,
-      `"${a.metodo === 'manual' ? 'Manual (Profesor)' : 'Tarjeta RFID'}"`,
-      `"${a.observacion || ''}"`,
-      `"${a.uid || ''}"`,
-      a.fecha
-    ]);
+  // Export to beautifully formatted Excel-compatible HTML spreadsheet
+  const handleDownloadExcel = () => {
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Ingresos de Clase</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; }
+          table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+          th { background-color: #1e293b; color: #ffffff; font-weight: bold; border: 1px solid #475569; padding: 10px; text-align: left; }
+          td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+          h2 { color: #b91c1c; margin-bottom: 5px; }
+          .verde { background-color: #d1fae5; color: #065f46; font-weight: bold; }
+          .amarillo { background-color: #fef3c7; color: #92400e; font-weight: bold; }
+          .rojo { background-color: #fee2e2; color: #991b1b; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h2>Reporte Oficial de Ingresos de Clase - ${nombreColegio}</h2>
+        <p>
+          <b>Fecha:</b> ${selectedDate} | 
+          <b>Grado:</b> ${grado} | 
+          <b>Salón:</b> ${salon} | 
+          <b>Asignatura:</b> ${asignatura} | 
+          <b>Horario:</b> ${horaEntrada} - ${horaFinalizacion} | 
+          <b>Docente:</b> ${profesor}
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Estudiante</th>
+              <th>Grado</th>
+              <th>Salón</th>
+              <th>Asignatura</th>
+              <th>Profesor</th>
+              <th>Hora Entrada Prog.</th>
+              <th>Hora Llegada Real</th>
+              <th>Minutos de Retraso</th>
+              <th>Estado de Asistencia</th>
+              <th>Método de Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${studentsAttendanceList.map(({ student, attendance, status }) => {
+              const minutos = attendance?.minutos_retraso || 0;
+              const isAbsent = status === 'rojo';
+              const isLate = status === 'amarillo';
+              
+              let statusText = 'Puntual';
+              let classColor = 'verde';
+              if (isAbsent) {
+                statusText = 'Inasistente';
+                classColor = 'rojo';
+              } else if (isLate) {
+                statusText = `Tarde (+${minutos} min)`;
+                classColor = 'amarillo';
+              }
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              return `
+                <tr>
+                  <td>${student.codigo || `EST-${student.id}`}</td>
+                  <td>${student.nombre}</td>
+                  <td>${student.grado}</td>
+                  <td>${salon}</td>
+                  <td>${asignatura}</td>
+                  <td>${profesor}</td>
+                  <td>${horaEntrada}</td>
+                  <td>${attendance?.hora || '—'}</td>
+                  <td>${minutos}</td>
+                  <td class="${classColor}">${statusText}</td>
+                  <td>${attendance ? (attendance.metodo === 'manual' ? 'Manual' : 'RFID') : '—'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `asistencias_retrasos_${selectedDate}.csv`);
+    link.setAttribute('download', `Ingresos_Clase_${selectedDate}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -261,7 +238,7 @@ export const AttendanceView: React.FC<Props> = ({
               </h2>
             </div>
             <p className="text-xs text-amber-200/90 font-medium mt-0.5">
-              {salon} • Asignatura: {asignatura} • {profesor}
+              {salon} • Asignatura: {asignatura} • Profesor: {profesor}
             </p>
           </div>
         </div>
@@ -269,31 +246,31 @@ export const AttendanceView: React.FC<Props> = ({
         <div className="flex items-center gap-2 flex-wrap">
           <div className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs font-mono font-bold text-white flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-amber-300" />
-            <span>Entrada: <strong>{horaEntrada}</strong></span>
+            <span>Horario Clase: <strong>{horaEntrada} - {horaFinalizacion}</strong></span>
           </div>
           <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-xs font-bold text-emerald-300 flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Tolerancia Puntual: <strong>{horaLimite}</strong></span>
+            <span>Tolerancia Entrada: <strong>{horaLimite}</strong></span>
           </div>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Asistencias */}
+      {/* Metrics Row (3 Cards: Present, Late, Absent) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Card 1: Presentes */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Presentes Hoy
             </span>
             <div className="text-3xl font-black text-slate-900 mt-1">
-              {presentStudents}
+              {presentCount} <span className="text-sm font-medium text-slate-400">de {totalCount}</span>
             </div>
             <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1 mt-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> {presentStudents - totalRetrasos} puntuales
+              <CheckCircle2 className="w-3.5 h-3.5" /> {punctualCount} a tiempo
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
             <UserCheck className="w-6 h-6" />
           </div>
         </div>
@@ -304,69 +281,50 @@ export const AttendanceView: React.FC<Props> = ({
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Llegadas Tardías
             </span>
-            <div className={`text-3xl font-black mt-1 ${totalRetrasos > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
-              {totalRetrasos}
+            <div className={`text-3xl font-black mt-1 ${lateCount > 0 ? 'text-amber-500' : 'text-slate-900'}`}>
+              {lateCount}
             </div>
             <span className="text-xs text-amber-600 font-semibold flex items-center gap-1 mt-1">
-              <AlertTriangle className="w-3.5 h-3.5" /> Con minutos de retraso
+              <Clock className="w-3.5 h-3.5" /> Con minutos de retraso
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center">
             <Clock className="w-6 h-6" />
           </div>
         </div>
 
-        {/* Card 3: Matricula y Tasa */}
+        {/* Card 3: Inasistentes */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              Tasa de Asistencia
+              Inasistentes (No Llegaron)
             </span>
-            <div className="text-3xl font-black text-slate-900 mt-1">
-              {attendanceRate}%
+            <div className={`text-3xl font-black mt-1 ${absentCount > 0 ? 'text-rose-600' : 'text-slate-900'}`}>
+              {absentCount}
             </div>
-            <span className="text-xs text-slate-500 font-medium mt-1 block">
-              {presentStudents} de {totalStudents} alumnos
+            <span className="text-xs text-rose-600 font-semibold flex items-center gap-1 mt-1">
+              <AlertTriangle className="w-3.5 h-3.5" /> Sin registro de entrada
             </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <GraduationCap className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <Users className="w-6 h-6" />
           </div>
-        </div>
-
-        {/* Card 4: Botón de Ingreso Manual Destacado */}
-        <div className="bg-linear-to-br from-amber-500 to-amber-600 rounded-2xl p-5 text-white shadow-xs flex flex-col justify-between">
-          <div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-100 block">
-              Sin Tarjeta / Emergencia
-            </span>
-            <div className="text-base font-black text-white mt-1">
-              Ingreso Manual
-            </div>
-          </div>
-          <button
-            onClick={() => setIsManualModalOpen(true)}
-            className="mt-3 w-full py-2 bg-white hover:bg-amber-50 text-amber-800 rounded-xl text-xs font-black transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4 text-amber-600" />
-            <span>Registrar Estudiante</span>
-          </button>
         </div>
       </div>
 
       {/* Filter Bar & Controls */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-xs space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Filters: Search, Date, Room, Subject */}
+          {/* Left: Search & Date picker */}
           <div className="flex flex-wrap items-center gap-2 flex-1">
-            <div className="relative min-w-[200px] flex-1">
+            <div className="relative min-w-[250px] flex-1">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar código, nombre, grado, profesor..."
+                placeholder="Buscar código, nombre, grado, RFID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-red-500 font-medium text-slate-900"
               />
             </div>
 
@@ -379,37 +337,9 @@ export const AttendanceView: React.FC<Props> = ({
                 className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
               />
             </div>
-
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-              <MapPin className="w-3.5 h-3.5 text-slate-500" />
-              <select
-                value={selectedSalon}
-                onChange={(e) => onSalonChange(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
-              >
-                <option value="todos">Todos los Salones</option>
-                {salones.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-              <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
-              <select
-                value={selectedAsignatura}
-                onChange={(e) => setSelectedAsignatura(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-hidden cursor-pointer"
-              >
-                <option value="todas">Todas las Asignaturas</option>
-                {asignaturas.map((asig) => (
-                  <option key={asig} value={asig}>{asig}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Right: Actions and view mode */}
           <div className="flex items-center gap-2 shrink-0">
             {/* View Switcher: [Tabla] vs [Tarjetas] */}
             <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
@@ -459,179 +389,111 @@ export const AttendanceView: React.FC<Props> = ({
             </button>
 
             <button
-              onClick={handleExportCSV}
-              disabled={filteredAsistencias.length === 0}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
+              onClick={handleDownloadExcel}
+              disabled={filteredStudentsList.length === 0}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+              title="Descargar reporte en formato Excel"
             >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>CSV</span>
-            </button>
-
-            <button
-              onClick={() => window.print()}
-              disabled={filteredAsistencias.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir</span>
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>Descargar</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Feedback Message Toast / Alert */}
-      {absenceNoticeMsg && (
-        <div className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-fadeIn ${
-          absenceNoticeMsg.type === 'ok'
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-            : 'bg-rose-50 border-rose-300 text-rose-900'
+      {/* Color Filter Tabs (Todos, Verde, Amarillo, Rojo) */}
+      <div className="bg-white border border-slate-200 p-2.5 rounded-2xl flex flex-wrap gap-2 shadow-xs items-center">
+        <span className="text-xs font-black text-slate-500 uppercase tracking-wider px-3">Filtrar por Asistencia:</span>
+        
+        <button
+          onClick={() => setColorFilter('todos')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+            colorFilter === 'todos'
+              ? 'bg-slate-950 text-white shadow-md'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+          }`}
+        >
+          <span>Todos ({studentsAttendanceList.length})</span>
+        </button>
+
+        <button
+          onClick={() => setColorFilter('verde')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            colorFilter === 'verde'
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          <span>A Tiempo / Puntuales ({studentsAttendanceList.filter(s => s.status === 'verde').length})</span>
+        </button>
+
+        <button
+          onClick={() => setColorFilter('amarillo')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            colorFilter === 'amarillo'
+              ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-md'
+              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>Tarde / Retrasados ({studentsAttendanceList.filter(s => s.status === 'amarillo').length})</span>
+        </button>
+
+        <button
+          onClick={() => setColorFilter('rojo')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer border ${
+            colorFilter === 'rojo'
+              ? 'bg-rose-600 text-white border-rose-600 shadow-md'
+              : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+          <span>Inasistentes ({studentsAttendanceList.filter(s => s.status === 'rojo').length})</span>
+        </button>
+      </div>
+
+      {/* Email Status Msg */}
+      {emailStatusMsg && (
+        <div className={`p-4 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+          emailStatusMsg.type === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'
         }`}>
-          <div className="flex items-center gap-2.5">
-            {absenceNoticeMsg.type === 'ok' ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-            )}
-            <span className="font-bold">{absenceNoticeMsg.text}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setAbsenceNoticeMsg(null)}
-            className="text-slate-400 hover:text-slate-600 p-1 text-xs font-bold cursor-pointer"
-          >
-            ✕
-          </button>
+          <span>{emailStatusMsg.text}</span>
+          <button onClick={() => setEmailStatusMsg(null)} className="font-bold text-slate-400 hover:text-slate-600">✕</button>
         </div>
       )}
-
-      {/* Control de Inasistencias y Alerta a Padres */}
-      <div className="bg-linear-to-br from-slate-900 via-slate-900 to-red-950 text-white rounded-2xl p-5 shadow-md border-2 border-red-900/50">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-start gap-3.5">
-            <div className={`p-3 rounded-2xl shrink-0 ${
-              absentStudentsList.length > 0 ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse' : 'bg-emerald-600 text-white'
-            }`}>
-              {absentStudentsList.length > 0 ? (
-                <UserX className="w-6 h-6" />
-              ) : (
-                <CheckCircle2 className="w-6 h-6" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-300/30">
-                  Tolerancia Oficial (08:40 AM)
-                </span>
-                <span className="text-xs font-bold text-slate-300">
-                  {absentStudentsList.length > 0 ? `${absentStudentsList.length} alumno(s) sin ingreso confirmado hoy` : 'Asistencia completa al 100%'}
-                </span>
-              </div>
-              <h3 className="text-base font-black text-white mt-1">
-                {absentStudentsList.length > 0 
-                  ? 'Estudiantes Ausentes o Fuera del Tiempo de Tolerancia'
-                  : '✓ ¡Todos los estudiantes de 6° - 1 han ingresado puntualmente!'}
-              </h3>
-              <p className="text-xs text-slate-300 mt-0.5 max-w-2xl">
-                {absentStudentsList.length > 0
-                  ? 'Puedes enviar una alerta oficial por correo a los padres de familia notificando que su acudido no ha registrado su ingreso al Salón de Informática.'
-                  : 'No hay inasistencias reportadas en este momento.'}
-              </p>
-            </div>
-          </div>
-
-          {absentStudentsList.length > 0 && (
-            <button
-              type="button"
-              onClick={handleNotifyAllAbsences}
-              disabled={isNotifyingAbsences}
-              className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black transition-all shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 cursor-pointer hover:scale-102 shrink-0"
-            >
-              {isNotifyingAbsences ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Despachando Correos...</span>
-                </>
-              ) : (
-                <>
-                  <Mail className="w-4 h-4 text-amber-300" />
-                  <span>Notificar Inasistencia a Todos ({absentStudentsList.length})</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* List of absent students chips */}
-        {absentStudentsList.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {absentStudentsList.map((st) => (
-              <div
-                key={st.id}
-                className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-2.5 flex items-center justify-between gap-3 text-xs"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-red-950 text-red-400 border border-red-800/60 font-black text-xs flex items-center justify-center shrink-0">
-                    {st.nombre.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <strong className="text-white block truncate text-xs">{st.nombre}</strong>
-                    <span className="text-[10px] text-amber-300 font-mono block truncate">
-                      {st.acudiente_correo || 'Sin correo registrado'}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => handleNotifySingleAbsence(st, e)}
-                  disabled={sendingStudentId === st.id || !st.acudiente_correo}
-                  className="px-2.5 py-1 bg-red-700 hover:bg-red-600 disabled:opacity-40 text-white rounded-lg text-[10px] font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
-                  title="Enviar correo de alerta de inasistencia al acudiente"
-                >
-                  {sendingStudentId === st.id ? (
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Mail className="w-3 h-3 text-amber-300" />
-                  )}
-                  <span>Alerta</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Main Container: Option 1 (Table) or Option 2 (Cards) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-black text-slate-900">
-              {viewMode === 'tabla' ? 'Tabla de Asistencia Escolar' : 'Tarjetas de Asistencia Escolar'}
+              {viewMode === 'tabla' ? 'Planilla de Asistencias de la Clase' : 'Tarjetas de Asistencia'}
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 font-mono">
-              {filteredAsistencias.length} registros
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 font-mono">
+              {filteredStudentsList.length} estudiantes listados
             </span>
           </div>
-          <span className="text-xs text-slate-400">
-            {selectedDate} • Horarios y Minutos de Retraso
+          <span className="text-xs text-slate-400 font-mono">
+            {selectedDate} • {colorFilter.toUpperCase()}
           </span>
         </div>
 
-        {filteredAsistencias.length === 0 ? (
+        {filteredStudentsList.length === 0 ? (
           <div className="py-16 text-center px-4">
             <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-              <Clock className="w-8 h-8" />
+              <Users className="w-8 h-8" />
             </div>
             <h3 className="text-base font-bold text-slate-800">
-              No hay asistencias registradas
+              No hay estudiantes que coincidan con el filtro
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-              Acerque una tarjeta al lector RFID, o use el botón <strong>"Ingreso Manual"</strong> si el estudiante no tiene su tarjeta.
+              Prueba cambiando el término de búsqueda o seleccionando otro filtro de asistencia.
             </p>
           </div>
         ) : viewMode === 'tabla' ? (
           /* ============================================================ */
-          /* OPCIÓN 1: TABLA PRINCIPAL CON MINUTOS DE RETRASO             */
+          /* OPCIÓN 1: TABLA PRINCIPAL DE TODOS LOS ESTUDIANTES          */
           /* ============================================================ */
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -640,28 +502,25 @@ export const AttendanceView: React.FC<Props> = ({
                   <th className="py-3 px-6">Código</th>
                   <th className="py-3 px-4">Estudiante</th>
                   <th className="py-3 px-4">Grado</th>
-                  <th className="py-3 px-4">Salón</th>
-                  <th className="py-3 px-4">Asignatura y Profesor</th>
                   <th className="py-3 px-4">Hora Llegada</th>
-                  <th className="py-3 px-4">Puntualidad / Retraso</th>
+                  <th className="py-3 px-4">Estado de Asistencia</th>
                   <th className="py-3 px-6 text-right">Método / Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredAsistencias.map((item) => {
-                  const minutos = item.minutos_retraso || 0;
-                  const esTarde = minutos > 0;
+                {filteredStudentsList.map(({ student, attendance, status }) => {
+                  const minutos = attendance?.minutos_retraso || 0;
 
                   return (
                     <tr
-                      key={item.id}
-                      onClick={() => handleOpenDetail(item)}
-                      className="hover:bg-blue-50/50 transition-colors group cursor-pointer"
+                      key={student.id}
+                      onClick={() => handleOpenDetail(student)}
+                      className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
                     >
                       {/* Código del Estudiante */}
                       <td className="py-3 px-6 font-mono font-bold text-blue-700 text-xs">
                         <span className="inline-block px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200/70">
-                          {item.codigo || `EST-${item.estudiante_id.toString().padStart(4, '0')}`}
+                          {student.codigo || `EST-${student.id.toString().padStart(4, '0')}`}
                         </span>
                       </td>
 
@@ -669,10 +528,10 @@ export const AttendanceView: React.FC<Props> = ({
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className="relative w-10 h-10 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                            {item.foto ? (
+                            {student.foto ? (
                               <img
-                                src={item.foto}
-                                alt={item.nombre}
+                                src={student.foto}
+                                alt={student.nombre}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   (e.currentTarget as HTMLImageElement).src = '/static/logo.svg';
@@ -680,16 +539,16 @@ export const AttendanceView: React.FC<Props> = ({
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-slate-400 font-bold text-xs bg-slate-100">
-                                {item.nombre ? item.nombre.slice(0, 2).toUpperCase() : 'ES'}
+                                {student.nombre.slice(0, 2).toUpperCase()}
                               </div>
                             )}
                           </div>
                           <div>
                             <div className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                              {item.nombre}
+                              {student.nombre}
                             </div>
                             <span className="text-[11px] text-slate-400 font-mono">
-                              UID: {item.uid}
+                              UID: {student.uid}
                             </span>
                           </div>
                         </div>
@@ -698,66 +557,50 @@ export const AttendanceView: React.FC<Props> = ({
                       {/* Grado */}
                       <td className="py-3 px-4">
                         <span className="inline-block px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/60">
-                          {item.grado}
+                          {student.grado}
                         </span>
-                      </td>
-
-                      {/* Salón */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span>{item.salon}</span>
-                        </div>
-                      </td>
-
-                      {/* Asignatura y Profesor */}
-                      <td className="py-3 px-4">
-                        <div>
-                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                            <BookOpen className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span>{item.asignatura || 'Matemáticas'}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            {item.profesor || 'Prof. Asignado'} (Entrada: {item.hora_programada || '07:00'})
-                          </div>
-                        </div>
                       </td>
 
                       {/* Hora de Llegada */}
                       <td className="py-3 px-4 font-mono font-bold text-slate-800 text-xs">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 text-slate-600">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{item.hora}</span>
+                          <span>{attendance?.hora || '—'}</span>
                         </div>
                       </td>
 
-                      {/* Puntualidad / Minutos de Retraso */}
+                      {/* Puntualidad / Minutos de Retraso con Color Filters */}
                       <td className="py-3 px-4">
-                        {!esTarde ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {status === 'verde' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Puntual (0 min)</span>
+                            <span>Puntual</span>
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
-                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                            <span>Retraso: +{minutos} min</span>
+                        )}
+                        {status === 'amarillo' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Tarde (+{minutos} min)</span>
+                          </span>
+                        )}
+                        {status === 'rojo' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Inasistente</span>
                           </span>
                         )}
                       </td>
 
-                      {/* Método (RFID o Manual) y Acción */}
+                      {/* Acciones */}
                       <td className="py-3 px-6 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            item.metodo === 'manual'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-blue-50 text-blue-700 border border-blue-200'
-                          }`}>
-                            {item.metodo === 'manual' ? 'Manual' : 'RFID'}
-                          </span>
+                        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {attendance && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                              {attendance.metodo === 'manual' ? 'Manual' : 'RFID'}
+                            </span>
+                          )}
 
-                          {item.acudiente_correo && (
+                          {attendance && student.acudiente_correo && (
                             <button
                               type="button"
                               onClick={async (e) => {
@@ -767,40 +610,40 @@ export const AttendanceView: React.FC<Props> = ({
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      estudiante_id: item.estudiante_id,
-                                      estudiante_nombre: item.nombre,
-                                      estudiante_codigo: item.codigo,
-                                      grado: item.grado,
-                                      salon: item.salon,
-                                      asignatura: item.asignatura,
-                                      profesor: item.profesor,
-                                      fecha: item.fecha,
-                                      hora: item.hora,
-                                      minutos_retraso: item.minutos_retraso,
-                                      acudiente_nombre: item.acudiente_nombre,
-                                      acudiente_correo: item.acudiente_correo
+                                      estudiante_id: student.id,
+                                      estudiante_nombre: student.nombre,
+                                      estudiante_codigo: student.codigo,
+                                      grado: student.grado,
+                                      salon,
+                                      asignatura,
+                                      profesor,
+                                      fecha: selectedDate,
+                                      hora: attendance.hora,
+                                      minutos_retraso: attendance.minutos_retraso,
+                                      acudiente_nombre: student.acudiente_nombre,
+                                      acudiente_correo: student.acudiente_correo
                                     })
                                   });
                                   const data = await res.json();
-                                  setAbsenceNoticeMsg({ type: 'ok', text: data.message || `✓ Correo de confirmación enviado a ${item.acudiente_correo}` });
+                                  setEmailStatusMsg({ type: 'ok', text: `✓ Correo enviado a ${student.acudiente_correo}` });
                                 } catch (err: any) {
-                                  setAbsenceNoticeMsg({ type: 'err', text: err.message || 'Error enviando correo' });
+                                  setEmailStatusMsg({ type: 'err', text: err.message || 'Error al enviar correo' });
                                 }
                               }}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
-                              title={`Enviar comprobante oficial por correo a ${item.acudiente_correo}`}
+                              title={`Enviar correo al acudiente`}
                             >
                               <Mail className="w-3.5 h-3.5 text-red-600" />
                               <span className="hidden xl:inline">Correo</span>
                             </button>
                           )}
 
-                          {item.acudiente_contacto && (
+                          {attendance && student.acudiente_contacto && (
                             <button
                               type="button"
-                              onClick={(e) => handleNotifyWhatsApp(item, e)}
+                              onClick={(e) => handleNotifyWhatsApp(student, attendance, e)}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
-                              title={`Notificar por WhatsApp a ${item.acudiente_nombre || 'acudiente'}`}
+                              title={`Notificar por WhatsApp`}
                             >
                               <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                               <span className="hidden md:inline">WhatsApp</span>
@@ -811,7 +654,7 @@ export const AttendanceView: React.FC<Props> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleOpenDetail(item);
+                              handleOpenDetail(student);
                             }}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
                           >
@@ -828,46 +671,43 @@ export const AttendanceView: React.FC<Props> = ({
           </div>
         ) : (
           /* ============================================================ */
-          /* OPCIÓN 2: TARJETAS VISUALES CON HORA Y RETRASO               */
+          /* OPCIÓN 2: TARJETAS VISUALES CON COLORES                     */
           /* ============================================================ */
           <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAsistencias.map((item) => {
-              const minutos = item.minutos_retraso || 0;
-              const esTarde = minutos > 0;
+            {filteredStudentsList.map(({ student, attendance, status }) => {
+              const minutos = attendance?.minutos_retraso || 0;
 
               return (
                 <div
-                  key={item.id}
-                  onClick={() => handleOpenDetail(item)}
-                  className="bg-slate-50/70 hover:bg-white hover:shadow-md border border-slate-200/80 rounded-2xl p-4 transition-all duration-200 cursor-pointer group flex flex-col justify-between"
+                  key={student.id}
+                  onClick={() => handleOpenDetail(student)}
+                  className={`bg-slate-50/70 hover:bg-white hover:shadow-md border rounded-2xl p-4 transition-all duration-200 cursor-pointer group flex flex-col justify-between ${
+                    status === 'verde' ? 'border-emerald-200 hover:border-emerald-400' :
+                    status === 'amarillo' ? 'border-amber-200 hover:border-amber-400' :
+                    'border-rose-200 hover:border-rose-400'
+                  }`}
                 >
                   <div>
-                    {/* Top Bar with Code, Subject & Method */}
+                    {/* Header */}
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <span className="font-mono text-[11px] font-black text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
-                        {item.codigo || `EST-${item.estudiante_id.toString().padStart(4, '0')}`}
+                        {student.codigo || `EST-${student.id}`}
                       </span>
 
-                      <div className="flex items-center gap-1">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/60">
-                          <BookOpen className="w-3 h-3 text-indigo-500" />
-                          <span>{item.asignatura || 'Matemáticas'}</span>
+                      {attendance && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                          {attendance.metodo === 'manual' ? 'Manual' : 'RFID'}
                         </span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          item.metodo === 'manual' ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-700'
-                        }`}>
-                          {item.metodo === 'manual' ? 'Manual' : 'RFID'}
-                        </span>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Student Photo & Name */}
+                    {/* Student Info */}
                     <div className="flex items-center gap-3">
                       <div className="w-14 h-14 rounded-2xl overflow-hidden bg-white border-2 border-slate-200 shadow-xs shrink-0">
-                        {item.foto ? (
+                        {student.foto ? (
                           <img
-                            src={item.foto}
-                            alt={item.nombre}
+                            src={student.foto}
+                            alt={student.nombre}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src = '/static/logo.svg';
@@ -875,51 +715,55 @@ export const AttendanceView: React.FC<Props> = ({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center font-black text-blue-600 bg-blue-50 text-sm">
-                            {item.nombre ? item.nombre.slice(0, 2).toUpperCase() : 'ES'}
+                            {student.nombre.slice(0, 2).toUpperCase()}
                           </div>
                         )}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-slate-900 group-hover:text-blue-700 text-sm truncate">
-                          {item.nombre}
+                          {student.nombre}
                         </h3>
                         <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-200/70 text-slate-700 mt-1">
-                          {item.grado}
+                          {student.grado}
                         </span>
-                        <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                          {item.profesor || 'Prof. Asignado'}
-                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Delay & Arrival Time & WhatsApp button */}
+                  {/* Arrival Time and Status Indicator */}
                   <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs gap-2">
                     <div className="flex items-center gap-1 text-slate-600 font-mono font-bold">
                       <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{item.hora}</span>
+                      <span>{attendance?.hora || '—'}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {!esTarde ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {status === 'verde' && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           <span>Puntual</span>
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200">
-                          <AlertTriangle className="w-3 h-3 text-rose-600" />
+                      )}
+                      {status === 'amarillo' && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <Clock className="w-3 h-3 text-amber-500" />
                           <span>+{minutos} min</span>
                         </span>
                       )}
+                      {status === 'rojo' && (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <AlertTriangle className="w-3 h-3 text-rose-500" />
+                          <span>Inasistente</span>
+                        </span>
+                      )}
 
-                      {item.acudiente_contacto && (
+                      {attendance && student.acudiente_contacto && (
                         <button
                           type="button"
-                          onClick={(e) => handleNotifyWhatsApp(item, e)}
+                          onClick={(e) => handleNotifyWhatsApp(student, attendance, e)}
                           className="p-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
-                          title="Enviar WhatsApp al acudiente"
+                          title="Enviar WhatsApp"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </button>
@@ -943,7 +787,7 @@ export const AttendanceView: React.FC<Props> = ({
         appSettings={appSettings}
       />
 
-      {/* Student Detail Modal (Expediente con Foto, Correo, Acudiente e Historial) */}
+      {/* Student Detail Modal */}
       {selectedStudentForDetail && (
         <StudentDetailModal
           student={selectedStudentForDetail}

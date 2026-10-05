@@ -3,15 +3,13 @@ import { ShieldCheck, Users, Radio, Cpu, Clock, AlertTriangle, ArrowRight, X, Me
 import { ModoInfo, AppSettings } from '../types';
 
 interface Props {
-  currentTab: 'asistencia' | 'estudiantes' | 'hardware';
-  onSelectTab: (tab: 'asistencia' | 'estudiantes' | 'hardware') => void;
+  currentTab: 'asistencia' | 'estudiantes';
+  onSelectTab: (tab: 'asistencia' | 'estudiantes') => void;
   modoInfo: ModoInfo;
   onCancelModoRegistro: () => void;
   showSimulator: boolean;
   onToggleSimulator: () => void;
   pendingCardUid: string | null;
-  onOpenParentNotifications?: () => void;
-  onOpenEmailConfig?: () => void;
   appSettings?: AppSettings | null;
   onOpenSettings?: () => void;
 }
@@ -24,8 +22,6 @@ export const Header: React.FC<Props> = ({
   showSimulator,
   onToggleSimulator,
   pendingCardUid,
-  onOpenParentNotifications,
-  onOpenEmailConfig,
   appSettings,
   onOpenSettings
 }) => {
@@ -176,48 +172,11 @@ export const Header: React.FC<Props> = ({
               <span>Estudiantes</span>
             </button>
 
-            {onOpenEmailConfig && (
-              <button
-                type="button"
-                onClick={onOpenEmailConfig}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 transition-all cursor-pointer shadow-xs"
-                title="Configurar servidor y notificaciones automáticas por correo a los padres"
-              >
-                <Mail className="w-4 h-4 text-red-600" />
-                <span>Correo a Padres</span>
-              </button>
-            )}
-
-            {onOpenParentNotifications && (
-              <button
-                type="button"
-                onClick={onOpenParentNotifications}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-all cursor-pointer shadow-xs"
-                title="Configurar y probar notificaciones automáticas por WhatsApp a los padres"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp Padres</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => onSelectTab('hardware')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
-                currentTab === 'hardware'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-              title="Ver código Arduino, diagrama ESP8266 y firewall"
-            >
-              <Cpu className="w-4 h-4 text-emerald-500" />
-              <span>ESP8266 & Windows</span>
-            </button>
-
             {onOpenSettings && (
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-linear-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-600/20 transition-all cursor-pointer hover:scale-102"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-linear-to-r from-slate-900 via-slate-800 to-slate-950 hover:from-slate-800 hover:to-slate-900 text-white shadow-md transition-all cursor-pointer hover:scale-102"
                 title="Ajustes generales: Colegio, Logo, Lema, Horarios, Tolerancia, Salón, Materia y Endpoint ESP8266"
               >
                 <Settings className="w-4 h-4 text-amber-300 animate-spin-slow" />

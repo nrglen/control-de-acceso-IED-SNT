@@ -1,6 +1,6 @@
 {
-  "name": "Remix Sistema de Asistencia Escolar RFID",
-  "description": "Sistema de registro y control de asistencia escolar en tiempo real con tecnología RFID ESP8266, base de datos SQLite y modo de asignación de tarjetas.",
+  "name": "I.E. San Nicolás de Tolentino - Control de Asistencia RFID",
+  "description": "Sistema oficial de control de asistencia escolar y puntualidad de la Institución Educativa San Nicolás de Tolentino con tecnología RFID ESP8266 y notificaciones automáticas.",
   "requestFramePermissions": [
     "camera"
   ],

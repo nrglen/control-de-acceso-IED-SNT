@@ -18,16 +18,17 @@ export interface DiaHorario {
   hora_entrada: string;
   minutos_tolerancia: number;
   hora_limite?: string;
+  hora_finalizacion?: string;
 }
 
 export const HORARIOS_SEMANALES_DEFAULT: DiaHorario[] = [
-  { dia: 'lunes', nombreDia: 'Lunes', activo: true, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' },
-  { dia: 'martes', nombreDia: 'Martes', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' },
-  { dia: 'miercoles', nombreDia: 'Miércoles', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' },
-  { dia: 'jueves', nombreDia: 'Jueves', activo: true, hora_entrada: '10:00', minutos_tolerancia: 10, hora_limite: '10:10' },
-  { dia: 'viernes', nombreDia: 'Viernes', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' },
-  { dia: 'sabado', nombreDia: 'Sábado', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' },
-  { dia: 'domingo', nombreDia: 'Domingo', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40' }
+  { dia: 'lunes', nombreDia: 'Lunes', activo: true, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' },
+  { dia: 'martes', nombreDia: 'Martes', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' },
+  { dia: 'miercoles', nombreDia: 'Miércoles', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' },
+  { dia: 'jueves', nombreDia: 'Jueves', activo: true, hora_entrada: '10:00', minutos_tolerancia: 10, hora_limite: '10:10', hora_finalizacion: '14:00' },
+  { dia: 'viernes', nombreDia: 'Viernes', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' },
+  { dia: 'sabado', nombreDia: 'Sábado', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' },
+  { dia: 'domingo', nombreDia: 'Domingo', activo: false, hora_entrada: '08:30', minutos_tolerancia: 10, hora_limite: '08:40', hora_finalizacion: '14:00' }
 ];
 
 export interface AppSettings {
@@ -45,6 +46,7 @@ export interface AppSettings {
   wifi_ssid_default?: string;
   wifi_pass_default?: string;
   horarios_semanales?: DiaHorario[];
+  hora_finalizacion?: string;
 }
 
 export interface Estudiante {
@@ -145,7 +147,8 @@ export async function initDatabase() {
       esp_endpoint_url TEXT DEFAULT '',
       wifi_ssid_default TEXT DEFAULT 'TU_NOMBRE_WIFI',
       wifi_pass_default TEXT DEFAULT 'TU_CONTRASENA_WIFI',
-      horario_semanal TEXT
+      horario_semanal TEXT,
+      hora_finalizacion TEXT DEFAULT '14:00'
     );
 
     CREATE TABLE IF NOT EXISTS config (
@@ -246,6 +249,7 @@ export async function initDatabase() {
   try { db.run("ALTER TABLE lecturas ADD COLUMN minutos_retraso INTEGER DEFAULT 0;"); } catch (e) {}
   try { db.run("ALTER TABLE lecturas ADD COLUMN metodo TEXT DEFAULT 'rfid';"); } catch (e) {}
   try { db.run("ALTER TABLE app_settings ADD COLUMN horario_semanal TEXT;"); } catch (e) {}
+  try { db.run("ALTER TABLE app_settings ADD COLUMN hora_finalizacion TEXT DEFAULT '14:00';"); } catch (e) {}
 
   // Populate sample guardian emails if null
   try {
@@ -460,7 +464,8 @@ export function getAppSettings(): AppSettings {
     esp_endpoint_url: '',
     wifi_ssid_default: 'TU_NOMBRE_WIFI',
     wifi_pass_default: 'TU_CONTRASENA_WIFI',
-    horarios_semanales: HORARIOS_SEMANALES_DEFAULT
+    horarios_semanales: HORARIOS_SEMANALES_DEFAULT,
+    hora_finalizacion: '14:00'
   };
 
   const current: AppSettings = row ? {
@@ -475,7 +480,8 @@ export function getAppSettings(): AppSettings {
     minutos_tolerancia: Number(row.minutos_tolerancia) || defaults.minutos_tolerancia,
     esp_endpoint_url: row.esp_endpoint_url || '',
     wifi_ssid_default: row.wifi_ssid_default || defaults.wifi_ssid_default,
-    wifi_pass_default: row.wifi_pass_default || defaults.wifi_pass_default
+    wifi_pass_default: row.wifi_pass_default || defaults.wifi_pass_default,
+    hora_finalizacion: row.hora_finalizacion || defaults.hora_finalizacion
   } : defaults;
 
   // Parse or initialize weekly schedule
@@ -488,6 +494,7 @@ export function getAppSettings(): AppSettings {
           const match = dbHorarios.find((h: any) => h.dia === def.dia);
           if (!match) return def;
           const hEntrada = match.hora_entrada || def.hora_entrada;
+          const hFinalizacion = match.hora_finalizacion || def.hora_finalizacion || '14:00';
           const tol = match.minutos_tolerancia !== undefined ? Number(match.minutos_tolerancia) : def.minutos_tolerancia;
           
           let lim = match.hora_limite;
@@ -506,7 +513,8 @@ export function getAppSettings(): AppSettings {
             activo: Boolean(match.activo),
             hora_entrada: hEntrada,
             minutos_tolerancia: tol,
-            hora_limite: lim
+            hora_limite: lim,
+            hora_finalizacion: hFinalizacion
           };
         });
       }
@@ -547,7 +555,8 @@ export function getHorarioDia(fechaStr?: string, settings?: AppSettings): DiaHor
     activo: true,
     hora_entrada: s.hora_entrada || '08:30',
     minutos_tolerancia: s.minutos_tolerancia || 10,
-    hora_limite: s.hora_limite || '08:40'
+    hora_limite: s.hora_limite || '08:40',
+    hora_finalizacion: s.hora_finalizacion || '14:00'
   };
 }
 
@@ -574,14 +583,15 @@ export function updateAppSettings(settings: Partial<AppSettings>) {
     esp_endpoint_url: (settings.esp_endpoint_url !== undefined ? settings.esp_endpoint_url : current.esp_endpoint_url).trim(),
     wifi_ssid_default: (settings.wifi_ssid_default !== undefined ? settings.wifi_ssid_default : current.wifi_ssid_default || 'TU_NOMBRE_WIFI').trim(),
     wifi_pass_default: (settings.wifi_pass_default !== undefined ? settings.wifi_pass_default : current.wifi_pass_default || 'TU_CONTRASENA_WIFI').trim(),
-    horarios_semanales: settings.horarios_semanales || current.horarios_semanales
+    horarios_semanales: settings.horarios_semanales || current.horarios_semanales,
+    hora_finalizacion: (settings.hora_finalizacion !== undefined ? settings.hora_finalizacion : current.hora_finalizacion || '14:00').trim()
   };
 
   run(
     `INSERT OR REPLACE INTO app_settings (
       id, nombre_colegio, lema_colegio, logo_url, grado, salon, asignatura, profesor,
-      hora_entrada, minutos_tolerancia, esp_endpoint_url, wifi_ssid_default, wifi_pass_default, horario_semanal
-    ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      hora_entrada, minutos_tolerancia, esp_endpoint_url, wifi_ssid_default, wifi_pass_default, horario_semanal, hora_finalizacion
+    ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       updated.nombre_colegio,
       updated.lema_colegio,
@@ -595,7 +605,8 @@ export function updateAppSettings(settings: Partial<AppSettings>) {
       updated.esp_endpoint_url,
       updated.wifi_ssid_default,
       updated.wifi_pass_default,
-      horarioSemanalJson
+      horarioSemanalJson,
+      updated.hora_finalizacion
     ]
   );
 
