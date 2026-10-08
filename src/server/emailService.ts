@@ -365,10 +365,10 @@ export async function sendGuardianAttendanceEmail(params: {
     };
   }
 
-  // Check email config
-  const config = queryOne('SELECT * FROM email_config WHERE id = 1');
-  const isAutoNotify = config ? Number(config.auto_notify_scan) === 1 : true;
-  const isTardyOnly = config ? Number(config.notify_on_tardy_only) === 1 : false;
+  // Check email config from database with environment variable overrides
+  const dbConfig = queryOne('SELECT * FROM email_config WHERE id = 1');
+  const isAutoNotify = dbConfig ? Number(dbConfig.auto_notify_scan) === 1 : true;
+  const isTardyOnly = dbConfig ? Number(dbConfig.notify_on_tardy_only) === 1 : false;
 
   if (!isAutoNotify) {
     return {
@@ -388,15 +388,20 @@ export async function sendGuardianAttendanceEmail(params: {
     ? `⚠️ Novedad de Asistencia (Retraso): ${estudianteNombre} - Grado ${grado}`
     : `✓ Ingreso Confirmado: ${estudianteNombre} - I.E. San Nicolás de Tolentino`;
 
-  const senderName = config?.sender_name || 'I.E. San Nicolás de Tolentino';
-  const senderEmail = config?.sender_email || config?.smtp_user || 'notificaciones.sannicolas@gmail.com';
+  const smtpUser = process.env.SMTP_USER || dbConfig?.smtp_user || '';
+  const smtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
+  const smtpHost = process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com';
+  const smtpPort = Number(process.env.SMTP_PORT || dbConfig?.smtp_port) || 587;
+  const smtpSecure = process.env.SMTP_SECURE === 'true' || Number(dbConfig?.smtp_secure) === 1;
+  const senderName = process.env.SENDER_NAME || dbConfig?.sender_name || 'I.E. San Nicolás de Tolentino';
+  const senderEmail = process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com';
 
-  const isDemoCredential = !config?.smtp_pass || 
-    config.smtp_pass.includes('demo') || 
-    config.smtp_pass.includes('test') || 
-    config.smtp_user.includes('demo') ||
-    config.smtp_user.includes('ejemplo') ||
-    config.smtp_user === 'notificaciones.sannicolas@gmail.com';
+  const isDemoCredential = !smtpPass || 
+    smtpPass.includes('demo') || 
+    smtpPass.includes('test') || 
+    smtpUser.includes('demo') ||
+    smtpUser.includes('ejemplo') ||
+    smtpUser === 'notificaciones.sannicolas@gmail.com';
 
   const htmlContent = generateAttendanceEmailHtml({
     estudianteNombre,
@@ -412,16 +417,16 @@ export async function sendGuardianAttendanceEmail(params: {
     acudienteNombre
   });
 
-  // If real credentials are provided (not demo generic), attempt live SMTP dispatch
-  if (config && config.smtp_user && config.smtp_pass && !isDemoCredential) {
+  // If real credentials are provided, attempt live SMTP dispatch
+  if (smtpUser && smtpPass && !isDemoCredential) {
     try {
       const transporter = nodemailer.createTransport({
-        host: config.smtp_host || 'smtp.gmail.com',
-        port: Number(config.smtp_port) || 587,
-        secure: Number(config.smtp_secure) === 1,
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
         auth: {
-          user: config.smtp_user,
-          pass: config.smtp_pass
+          user: smtpUser,
+          pass: smtpPass
         },
         tls: {
           rejectUnauthorized: false
@@ -449,11 +454,17 @@ export async function sendGuardianAttendanceEmail(params: {
         message: `Correo enviado exitosamente a ${acudienteCorreo}`
       };
     } catch (err: any) {
-      console.warn('[CORREO SMTP - Fallback a simulación]:', err.message);
+      console.warn('[CORREO SMTP - Falló despacho en vivo]:', err.message);
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${hora}`, `Error SMTP: ${err.message}`]
+        );
+      } catch (e) {}
     }
   }
 
-  // Generic / Demo / Sandbox dispatch (Graceful delivery)
+  // Fallback / Demo / Sandbox dispatch (Graceful delivery)
   try {
     run(
       'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
@@ -504,18 +515,23 @@ export async function sendGuardianAbsenceEmail(params: {
     };
   }
 
-  const config = queryOne('SELECT * FROM email_config WHERE id = 1');
+  const dbConfig = queryOne('SELECT * FROM email_config WHERE id = 1');
   const subject = `⚠️ ALERTA DE INASISTENCIA: ${estudianteNombre} no ha registrado ingreso (Grado ${grado})`;
 
-  const senderName = config?.sender_name || 'I.E. San Nicolás de Tolentino';
-  const senderEmail = config?.sender_email || config?.smtp_user || 'notificaciones.sannicolas@gmail.com';
+  const smtpUser = process.env.SMTP_USER || dbConfig?.smtp_user || '';
+  const smtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
+  const smtpHost = process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com';
+  const smtpPort = Number(process.env.SMTP_PORT || dbConfig?.smtp_port) || 587;
+  const smtpSecure = process.env.SMTP_SECURE === 'true' || Number(dbConfig?.smtp_secure) === 1;
+  const senderName = process.env.SENDER_NAME || dbConfig?.sender_name || 'I.E. San Nicolás de Tolentino';
+  const senderEmail = process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com';
 
-  const isDemoCredential = !config?.smtp_pass || 
-    config.smtp_pass.includes('demo') || 
-    config.smtp_pass.includes('test') || 
-    config.smtp_user.includes('demo') ||
-    config.smtp_user.includes('ejemplo') ||
-    config.smtp_user === 'notificaciones.sannicolas@gmail.com';
+  const isDemoCredential = !smtpPass || 
+    smtpPass.includes('demo') || 
+    smtpPass.includes('test') || 
+    smtpUser.includes('demo') ||
+    smtpUser.includes('ejemplo') ||
+    smtpUser === 'notificaciones.sannicolas@gmail.com';
 
   const htmlContent = generateAbsenceEmailHtml({
     estudianteNombre,
@@ -531,15 +547,15 @@ export async function sendGuardianAbsenceEmail(params: {
 
   const nowTime = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-  if (config && config.smtp_user && config.smtp_pass && !isDemoCredential) {
+  if (smtpUser && smtpPass && !isDemoCredential) {
     try {
       const transporter = nodemailer.createTransport({
-        host: config.smtp_host || 'smtp.gmail.com',
-        port: Number(config.smtp_port) || 587,
-        secure: Number(config.smtp_secure) === 1,
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
         auth: {
-          user: config.smtp_user,
-          pass: config.smtp_pass
+          user: smtpUser,
+          pass: smtpPass
         },
         tls: {
           rejectUnauthorized: false
@@ -556,7 +572,7 @@ export async function sendGuardianAbsenceEmail(params: {
       try {
         run(
           'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${nowTime}`, 'Alerta de inasistencia enviada vía SMTP']
+          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${nowTime}`, 'Alerta de inasistencia enviada vía SMTP en vivo']
         );
       } catch (e) {}
 
@@ -565,7 +581,13 @@ export async function sendGuardianAbsenceEmail(params: {
         message: `Alerta de inasistencia enviada exitosamente a ${acudienteCorreo}`
       };
     } catch (err: any) {
-      console.warn('[CORREO INASISTENCIA SMTP - Fallback a simulación]:', err.message);
+      console.warn('[CORREO INASISTENCIA SMTP - Falló despacho en vivo]:', err.message);
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${nowTime}`, `Error SMTP: ${err.message}`]
+        );
+      } catch (e) {}
     }
   }
 

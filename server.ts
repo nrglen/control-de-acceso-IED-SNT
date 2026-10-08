@@ -561,7 +561,7 @@ app.post('/api/asistencias/manual', (req: Request, res: Response): any => {
     }
 
     const estudiante = queryOne<Estudiante>(
-      'SELECT id, codigo, uid, nombre, grado, correo, acudiente_nombre, acudiente_contacto, foto FROM estudiantes WHERE id = ?',
+      'SELECT id, codigo, uid, nombre, grado, correo, acudiente_nombre, acudiente_contacto, acudiente_correo, foto FROM estudiantes WHERE id = ?',
       [estudiante_id]
     );
 
