@@ -291,15 +291,30 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
           {activeTab === 'config' && (
             <form onSubmit={handleSave} className="space-y-5">
               {/* Notice Banner */}
-              <div className="p-3.5 bg-amber-50 border-2 border-amber-300/80 rounded-2xl flex items-start gap-2.5 text-xs text-amber-950 shadow-xs">
-                <Sparkles className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-black text-red-900 block text-xs">
-                    Credenciales genéricas activas para pruebas inmediatas
+              <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-2xl space-y-2 text-xs text-amber-950 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                  <strong className="font-black text-amber-950 text-sm">
+                    ¿Por qué no llegan los correos a la bandeja de entrada real?
                   </strong>
-                  <span className="text-[11px] text-amber-900 leading-relaxed block mt-0.5">
-                    El sistema cuenta con un correo y contraseña provisionales (<strong>notificaciones.sannicolas@gmail.com</strong>) para que puedas probar el registro y despacho de avisos ya mismo. Cuando tengas la cuenta definitiva del colegio, solo reemplázala aquí.
-                  </span>
+                </div>
+                <p className="text-[12px] text-amber-900 leading-relaxed">
+                  Para que los correos salgan a las bandejas reales de los padres (en lugar de simularse), debes ingresar tu correo y una <strong>Contraseña de Aplicación de Google de 16 caracteres</strong> (no tu contraseña normal).
+                </p>
+                <div className="bg-white/80 border border-amber-300 rounded-xl p-3 text-[11px] space-y-1.5 text-slate-800">
+                  <span className="font-bold text-slate-900 block">Pasos para activar envíos reales con Gmail (toma 1 minuto):</span>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                    <span>Entra a <strong>myaccount.google.com/security</strong> y asegúrate de tener activada la <strong>Verificación en 2 pasos</strong>.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                    <span>Busca <strong>"Contraseñas de aplicaciones"</strong> (o entra directo a <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">myaccount.google.com/apppasswords</a>) y crea una con el nombre <em>"Colegio RFID"</em>.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                    <span>Google te dará un código de <strong>16 letras</strong>. Pégalo abajo en el campo <strong>Contraseña SMTP / Contraseña de Aplicación</strong> y guarda.</span>
+                  </div>
                 </div>
               </div>
 

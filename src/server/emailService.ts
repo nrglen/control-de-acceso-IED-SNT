@@ -444,39 +444,51 @@ export async function sendGuardianAttendanceEmail(params: {
       try {
         run(
           'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${hora}`, 'Enviado exitosamente vía SMTP en vivo']
+          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${hora}`, 'Enviado exitosamente a la bandeja de entrada vía SMTP']
         );
       } catch (e) {}
 
-      console.log(`[CORREO ENVIADO] ✓ Correo despachado a ${acudienteCorreo} para ${estudianteNombre}`);
+      console.log(`[CORREO ENVIADO EN VIVO] ✓ Correo despachado a ${acudienteCorreo} para ${estudianteNombre}`);
       return {
         success: true,
-        message: `Correo enviado exitosamente a ${acudienteCorreo}`
+        message: `Correo enviado exitosamente a la bandeja de ${acudienteCorreo}`
       };
     } catch (err: any) {
-      console.warn('[CORREO SMTP - Falló despacho en vivo]:', err.message);
+      let friendlyError = err.message || 'Error de conexión con el servidor SMTP.';
+      if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted') || err.message.includes('BadCredentials'))) {
+        friendlyError = 'Gmail rechazó las credenciales (Error 535). Recuerda que Google exige usar una "Contraseña de Aplicación" de 16 letras (no tu contraseña habitual de Gmail) y tener la Verificación en 2 pasos activada en tu cuenta de Google.';
+      } else if (err.message && err.message.includes('ETIMEDOUT')) {
+        friendlyError = 'Tiempo de espera agotado al conectar al servidor SMTP. Verifica que el puerto 587 o el host sean correctos.';
+      }
+
+      console.error('[CORREO SMTP - Falló despacho en vivo]:', friendlyError);
       try {
         run(
           'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${hora}`, `Error SMTP: ${err.message}`]
+          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${hora}`, `Error SMTP: ${friendlyError}`]
         );
       } catch (e) {}
+
+      return {
+        success: false,
+        message: `No se pudo entregar el correo: ${friendlyError}`
+      };
     }
   }
 
-  // Fallback / Demo / Sandbox dispatch (Graceful delivery)
+  // If credentials are demo or missing, do NOT report fake success
   try {
     run(
       'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-      [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${hora}`, 'Despachado automáticamente al registrar ingreso']
+      [estudianteNombre, acudienteCorreo, subject, 'pendiente', `${fecha} ${hora}`, 'Generado en modo demo (requiere configurar SMTP para envío real)']
     );
   } catch (e) {}
 
-  console.log(`[CORREO LISTO] 📧 Notificación institucional generada para ${acudienteCorreo} (${estudianteNombre} - ${hora})`);
+  console.log(`[CORREO MODO DEMO] ⚠️ Notificación preparada para ${acudienteCorreo}, pero requiere credenciales SMTP reales para llegar al buzón.`);
   return {
-    success: true,
+    success: false,
     simulated: true,
-    message: `✓ Notificación despachada con éxito para ${acudienteCorreo} (${estudianteNombre})`
+    message: `⚠️ El correo no llegó al buzón real de ${acudienteCorreo} porque el sistema tiene credenciales de demostración. Configura tu correo y Contraseña de Aplicación en Ajustes > "Configurar Envío de Correos (SMTP)".`
   };
 }
 
@@ -572,36 +584,45 @@ export async function sendGuardianAbsenceEmail(params: {
       try {
         run(
           'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${nowTime}`, 'Alerta de inasistencia enviada vía SMTP en vivo']
+          [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${nowTime}`, 'Alerta de inasistencia enviada en vivo vía SMTP']
         );
       } catch (e) {}
 
       return {
         success: true,
-        message: `Alerta de inasistencia enviada exitosamente a ${acudienteCorreo}`
+        message: `Alerta de inasistencia enviada exitosamente a la bandeja de ${acudienteCorreo}`
       };
     } catch (err: any) {
-      console.warn('[CORREO INASISTENCIA SMTP - Falló despacho en vivo]:', err.message);
+      let friendlyError = err.message || 'Error de conexión con el servidor SMTP.';
+      if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted'))) {
+        friendlyError = 'Gmail rechazó las credenciales (Error 535). Recuerda que Google exige usar una "Contraseña de Aplicación" de 16 letras con Verificación en 2 pasos activa.';
+      }
+      console.error('[CORREO INASISTENCIA SMTP - Falló despacho en vivo]:', friendlyError);
       try {
         run(
           'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${nowTime}`, `Error SMTP: ${err.message}`]
+          [estudianteNombre, acudienteCorreo, subject, 'error', `${fecha} ${nowTime}`, `Error SMTP: ${friendlyError}`]
         );
       } catch (e) {}
+
+      return {
+        success: false,
+        message: `No se pudo entregar la alerta de inasistencia: ${friendlyError}`
+      };
     }
   }
 
   try {
     run(
       'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-      [estudianteNombre, acudienteCorreo, subject, 'enviado', `${fecha} ${nowTime}`, 'Alerta de inasistencia despachada al acudiente']
+      [estudianteNombre, acudienteCorreo, subject, 'pendiente', `${fecha} ${nowTime}`, 'Generado en modo demo (requiere configurar SMTP)']
     );
   } catch (e) {}
 
   return {
-    success: true,
+    success: false,
     simulated: true,
-    message: `✓ Alerta de inasistencia procesada y registrada para ${acudienteCorreo} (${estudianteNombre})`
+    message: `⚠️ Modo Demostración: Para que la alerta llegue a la bandeja real de ${acudienteCorreo}, debes configurar tu cuenta de correo en Ajustes > "Configurar Envío de Correos (SMTP)".`
   };
 }
 
@@ -635,19 +656,10 @@ export async function testSmtpConnection(
     config.smtp_user === 'notificaciones.sannicolas@gmail.com';
 
   if (isDemo) {
-    try {
-      const now = new Date().toLocaleTimeString('es-ES');
-      const today = new Date().toLocaleDateString('es-ES');
-      run(
-        'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
-        ['[Prueba de Servidor]', testRecipient, '✓ Correo de Prueba (Modo Genérico)', 'enviado', `${today} ${now}`, `Prueba realizada con credenciales genéricas (${config.smtp_user})`]
-      );
-    } catch (e) {}
-
     return {
-      success: true,
+      success: false,
       simulated: true,
-      message: `✓ ¡Prueba exitosa en modo genérico! El correo hacia "${testRecipient}" se estructuró y despachó correctamente. Puedes usar estas credenciales provisionales o ingresar tu correo definitivo cuando lo desees.`
+      message: `⚠️ No se puede enviar un correo real con las credenciales de prueba. En la pestaña "1. Servidor SMTP", ingresa tu correo real (ej: tucolegio@gmail.com) y tu Contraseña de Aplicación de 16 letras de Google para que el mensaje llegue a tu bandeja de entrada.`
     };
   }
 
@@ -697,9 +709,15 @@ export async function testSmtpConnection(
     };
   } catch (err: any) {
     console.error('Error in testSmtpConnection:', err);
+    let friendly = err.message || 'Verifica el usuario y contraseña de aplicación.';
+    if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted') || err.message.includes('BadCredentials'))) {
+      friendly = 'Gmail rechazó la contraseña (Error 535). Recuerda que Google NO permite tu contraseña normal de Gmail. Debes activar la "Verificación en 2 pasos" y generar una "Contraseña de Aplicación" de 16 caracteres en myaccount.google.com/security.';
+    } else if (err.message && err.message.includes('ETIMEDOUT')) {
+      friendly = 'Tiempo de espera agotado al conectar al servidor SMTP. Verifica el host y puerto (587 recomendado).';
+    }
     return {
       success: false,
-      message: `Error SMTP: ${err.message || 'Verifica el usuario y contraseña de aplicación'}`
+      message: `Error SMTP: ${friendly}`
     };
   }
 }
