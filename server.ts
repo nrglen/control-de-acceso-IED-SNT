@@ -1774,6 +1774,31 @@ app.get('/api/network-ips', (_req: Request, res: Response) => {
   });
 });
 
+// JSON 404 Fallback for any unhandled /api/* routes (ensures client never receives HTML for API calls)
+app.all('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({
+    ok: false,
+    success: false,
+    message: `Ruta de API no encontrada: ${req.method} ${req.path}`,
+    error: 'Endpoint no encontrado'
+  });
+});
+
+// JSON Error Middleware for all API routes (ensures internal server errors return JSON, never HTML)
+app.use((err: any, req: Request, res: Response, next: any) => {
+  if (req.path.startsWith('/api/')) {
+    if (res.headersSent) return next(err);
+    console.error('[API Server Error]:', err);
+    return res.status(500).json({
+      ok: false,
+      success: false,
+      message: err.message || 'Error interno del servidor.',
+      error: String(err)
+    });
+  }
+  next(err);
+});
+
 // -------------------------------------------------------------
 // Vite or Production Static Serving
 // -------------------------------------------------------------

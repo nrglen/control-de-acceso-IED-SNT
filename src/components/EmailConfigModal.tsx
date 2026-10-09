@@ -136,12 +136,17 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
         body: JSON.stringify(formData)
       });
 
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`El servidor respondió con código ${res.status} (posible reinicio en curso). Espera unos segundos y reintenta.`);
+      }
+
       const data = await res.json();
       if (res.ok && data.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3500);
       } else {
-        setErrorMessage(data.error || 'Error al guardar la configuración.');
+        setErrorMessage(data.error || data.message || 'Error al guardar la configuración.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Error de conexión.');
@@ -170,6 +175,11 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
           config: formData
         })
       });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`El servidor respondió con código ${res.status}. Por favor espera unos segundos mientras el servidor se estabiliza y reintenta.`);
+      }
 
       const data = await res.json();
       if (data.success) {

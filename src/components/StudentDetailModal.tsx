@@ -39,6 +39,8 @@ interface Props {
 export const StudentDetailModal: React.FC<Props> = ({ student, onClose }) => {
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [isLoadingHistorial, setIsLoadingHistorial] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!student) return;
@@ -179,37 +181,64 @@ export const StudentDetailModal: React.FC<Props> = ({ student, onClose }) => {
                   </div>
 
                   {student.acudiente_correo && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/email/send-manual', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              estudiante_id: student.id,
-                              estudiante_nombre: student.nombre,
-                              estudiante_codigo: student.codigo,
-                              grado: student.grado,
-                              salon: 'Salón de Informática',
-                              asignatura: 'Informática y Tecnología',
-                              profesor: 'Prof. Roberto Gómez',
-                              acudiente_nombre: student.acudiente_nombre,
-                              acudiente_correo: student.acudiente_correo
-                            })
-                          });
-                          const data = await res.json();
-                          alert(data.message || 'Notificación de correo procesada');
-                        } catch (err: any) {
-                          alert('Error al enviar correo: ' + err.message);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                      title="Enviar comprobante de asistencia al correo del acudiente"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Notificar por Correo</span>
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        disabled={isSendingEmail}
+                        onClick={async () => {
+                          setIsSendingEmail(true);
+                          setEmailFeedback(null);
+                          try {
+                            const res = await fetch('/api/email/send-manual', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                estudiante_id: student.id,
+                                estudiante_nombre: student.nombre,
+                                estudiante_codigo: student.codigo,
+                                grado: student.grado,
+                                salon: 'Salón de Informática',
+                                asignatura: 'Informática y Tecnología',
+                                profesor: 'Prof. Roberto Gómez',
+                                acudiente_nombre: student.acudiente_nombre,
+                                acudiente_correo: student.acudiente_correo
+                              })
+                            });
+
+                            const contentType = res.headers.get('content-type') || '';
+                            if (!contentType.includes('application/json')) {
+                              throw new Error(`El servidor respondió con código ${res.status} (posible reinicio en curso). Espera unos segundos y reintenta.`);
+                            }
+
+                            const data = await res.json();
+                            if (data.success) {
+                              setEmailFeedback({ ok: true, text: data.message || '✓ Correo enviado con éxito' });
+                            } else {
+                              setEmailFeedback({ ok: false, text: data.message || 'No se pudo enviar el correo' });
+                            }
+                            setTimeout(() => setEmailFeedback(null), 5000);
+                          } catch (err: any) {
+                            setEmailFeedback({ ok: false, text: err.message || 'Error de conexión' });
+                            setTimeout(() => setEmailFeedback(null), 5000);
+                          } finally {
+                            setIsSendingEmail(false);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                        title="Enviar comprobante de asistencia al correo del acudiente"
+                      >
+                        <Mail className={`w-3.5 h-3.5 ${isSendingEmail ? 'animate-bounce' : ''}`} />
+                        <span>{isSendingEmail ? 'Enviando...' : 'Notificar por Correo'}</span>
+                      </button>
+
+                      {emailFeedback && (
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
+                          emailFeedback.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {emailFeedback.text}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

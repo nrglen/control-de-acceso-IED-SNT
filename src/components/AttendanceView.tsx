@@ -624,10 +624,22 @@ export const AttendanceView: React.FC<Props> = ({
                                       acudiente_correo: student.acudiente_correo
                                     })
                                   });
+
+                                  const contentType = res.headers.get('content-type') || '';
+                                  if (!contentType.includes('application/json')) {
+                                    throw new Error(`El servidor respondió con estado ${res.status}. Por favor espera unos segundos y reintenta.`);
+                                  }
+
                                   const data = await res.json();
-                                  setEmailStatusMsg({ type: 'ok', text: `✓ Correo enviado a ${student.acudiente_correo}` });
+                                  if (data.success) {
+                                    setEmailStatusMsg({ type: 'ok', text: `✓ ${data.message || `Correo enviado a ${student.acudiente_correo}`}` });
+                                  } else {
+                                    setEmailStatusMsg({ type: 'err', text: data.message || 'No se pudo enviar el correo' });
+                                  }
+                                  setTimeout(() => setEmailStatusMsg(null), 5000);
                                 } catch (err: any) {
                                   setEmailStatusMsg({ type: 'err', text: err.message || 'Error al enviar correo' });
+                                  setTimeout(() => setEmailStatusMsg(null), 5000);
                                 }
                               }}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
