@@ -332,6 +332,11 @@ export function generateAbsenceEmailHtml(params: {
   `.trim();
 }
 
+// Custom DNS lookup that strictly forces IPv4 to eliminate ENETUNREACH errors on cloud platforms without IPv6 (Render)
+function lookupIPv4(hostname: string, options: any, callback: any) {
+  return dns.lookup(hostname, { family: 4, all: false }, callback);
+}
+
 /**
  * Creates an optimal nodemailer transporter that automatically uses service: 'gmail'
  * with direct SSL on port 465 to prevent timeouts on cloud platforms like Render.
@@ -350,7 +355,7 @@ function createOptimalTransporter(params: {
       host: 'smtp.gmail.com',
       port: 465,
       secure: true,
-      family: 4, // Enforce IPv4 to avoid ENETUNREACH on platforms without IPv6 (Render)
+      lookup: lookupIPv4,
       auth: {
         user: params.user,
         pass: params.pass
@@ -359,7 +364,8 @@ function createOptimalTransporter(params: {
       greetingTimeout: 10000,
       socketTimeout: 15000,
       tls: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        servername: 'smtp.gmail.com'
       }
     });
   }
@@ -368,7 +374,7 @@ function createOptimalTransporter(params: {
     host: params.host || 'smtp.gmail.com',
     port: Number(params.port) || 587,
     secure: Boolean(params.secure),
-    family: 4, // Enforce IPv4
+    lookup: lookupIPv4,
     auth: {
       user: params.user,
       pass: params.pass
@@ -377,7 +383,8 @@ function createOptimalTransporter(params: {
     greetingTimeout: 10000,
     socketTimeout: 15000,
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      servername: params.host || 'smtp.gmail.com'
     }
   });
 }
