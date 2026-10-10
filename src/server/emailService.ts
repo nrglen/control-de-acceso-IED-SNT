@@ -1,5 +1,11 @@
+import dns from 'dns';
 import nodemailer from 'nodemailer';
 import { queryOne, queryAll, run } from './db.ts';
+
+// Force IPv4 first to prevent ENETUNREACH errors on cloud platforms without IPv6 (such as Render)
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (e) {}
 
 export interface EmailSendResult {
   success: boolean;
@@ -341,7 +347,10 @@ function createOptimalTransporter(params: {
 
   if (isGmail) {
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      family: 4, // Enforce IPv4 to avoid ENETUNREACH on platforms without IPv6 (Render)
       auth: {
         user: params.user,
         pass: params.pass
@@ -359,6 +368,7 @@ function createOptimalTransporter(params: {
     host: params.host || 'smtp.gmail.com',
     port: Number(params.port) || 587,
     secure: Boolean(params.secure),
+    family: 4, // Enforce IPv4
     auth: {
       user: params.user,
       pass: params.pass

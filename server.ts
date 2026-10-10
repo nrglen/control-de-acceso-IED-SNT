@@ -1,3 +1,8 @@
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (e) {}
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
