@@ -166,15 +166,15 @@ export default function App() {
           const modoData: ModoInfo = await modoRes.json();
           setModoInfo(modoData);
 
-          // If in registration mode, check for pending card
-          if (modoData.modo === 'registro') {
-            const cardRes = await fetch('/api/tarjeta-pendiente');
-            if (cardRes.ok) {
-              const cardData = await cardRes.json();
+          // Check for pending card
+          const cardRes = await fetch('/api/tarjeta-pendiente');
+          if (cardRes.ok) {
+            const cardData = await cardRes.json();
+            if (cardData.uid) {
               setPendingCardUid(cardData.uid);
+            } else if (modoData.modo !== 'registro') {
+              setPendingCardUid(null);
             }
-          } else {
-            setPendingCardUid(null);
           }
         }
 
