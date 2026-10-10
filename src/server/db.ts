@@ -364,18 +364,18 @@ export async function initDatabase() {
     db.run("UPDATE estudiantes SET acudiente_correo = 'carmen.castillo.romero@gmail.com' WHERE id = 5 AND (acudiente_correo IS NULL OR acudiente_correo = '');");
   } catch (e) {}
 
-  // Initialize email config table if empty
+  // Initialize email config table if empty or migrate from legacy demo
   try {
-    const emailCfg = queryOne('SELECT id, smtp_user FROM email_config WHERE id = 1');
+    const emailCfg = queryOne('SELECT id, smtp_user, smtp_pass FROM email_config WHERE id = 1');
     if (!emailCfg) {
       run(`INSERT INTO email_config (id, smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass, sender_name, sender_email, auto_notify_scan, notify_on_tardy_only)
-           VALUES (1, 'smtp.gmail.com', 587, 0, 'notificaciones.sannicolas@gmail.com', 'sannicolas2026demo', 'I.E. San Nicolás de Tolentino', 'notificaciones.sannicolas@gmail.com', 1, 0)`);
-    } else if (!emailCfg.smtp_user) {
+           VALUES (1, 'smtp.gmail.com', 587, 0, 'nadinsonramos@gmail.com', 'ebqfongfsfktuxyn', 'I.E. San Nicolás de Tolentino', 'nadinsonramos@gmail.com', 1, 0)`);
+    } else if (!emailCfg.smtp_user || emailCfg.smtp_user.includes('sannicolas') || !emailCfg.smtp_pass || emailCfg.smtp_pass.includes('demo')) {
       run(`UPDATE email_config SET 
-           smtp_user = 'notificaciones.sannicolas@gmail.com',
-           smtp_pass = 'sannicolas2026demo',
+           smtp_user = 'nadinsonramos@gmail.com',
+           smtp_pass = 'ebqfongfsfktuxyn',
            sender_name = 'I.E. San Nicolás de Tolentino',
-           sender_email = 'notificaciones.sannicolas@gmail.com'
+           sender_email = 'nadinsonramos@gmail.com'
            WHERE id = 1`);
     }
   } catch (e) {}

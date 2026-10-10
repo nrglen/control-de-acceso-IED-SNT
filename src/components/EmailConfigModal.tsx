@@ -36,10 +36,10 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
     smtp_host: 'smtp.gmail.com',
     smtp_port: 587,
     smtp_secure: false,
-    smtp_user: 'notificaciones.sannicolas@gmail.com',
-    smtp_pass: 'sannicolas2026demo',
+    smtp_user: 'nadinsonramos@gmail.com',
+    smtp_pass: 'ebqfongfsfktuxyn',
     sender_name: 'I.E. San Nicolás de Tolentino',
-    sender_email: 'notificaciones.sannicolas@gmail.com',
+    sender_email: 'nadinsonramos@gmail.com',
     auto_notify_scan: true,
     notify_on_tardy_only: false,
     configured: true
