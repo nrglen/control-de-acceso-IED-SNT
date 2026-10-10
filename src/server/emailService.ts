@@ -388,13 +388,14 @@ export async function sendGuardianAttendanceEmail(params: {
     ? `⚠️ Novedad de Asistencia (Retraso): ${estudianteNombre} - Grado ${grado}`
     : `✓ Ingreso Confirmado: ${estudianteNombre} - I.E. San Nicolás de Tolentino`;
 
-  const smtpUser = process.env.SMTP_USER || dbConfig?.smtp_user || '';
-  const smtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
-  const smtpHost = process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com';
+  const smtpUser = (process.env.SMTP_USER || dbConfig?.smtp_user || '').trim();
+  const rawSmtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
+  const smtpPass = rawSmtpPass.trim().replace(/\s+/g, '');
+  const smtpHost = (process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com').trim();
   const smtpPort = Number(process.env.SMTP_PORT || dbConfig?.smtp_port) || 587;
   const smtpSecure = process.env.SMTP_SECURE === 'true' || Number(dbConfig?.smtp_secure) === 1;
   const senderName = process.env.SENDER_NAME || dbConfig?.sender_name || 'I.E. San Nicolás de Tolentino';
-  const senderEmail = process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com';
+  const senderEmail = (process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com').trim();
 
   const isDemoCredential = !smtpPass || 
     smtpPass.includes('demo') || 
@@ -530,13 +531,14 @@ export async function sendGuardianAbsenceEmail(params: {
   const dbConfig = queryOne('SELECT * FROM email_config WHERE id = 1');
   const subject = `⚠️ ALERTA DE INASISTENCIA: ${estudianteNombre} no ha registrado ingreso (Grado ${grado})`;
 
-  const smtpUser = process.env.SMTP_USER || dbConfig?.smtp_user || '';
-  const smtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
-  const smtpHost = process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com';
+  const smtpUser = (process.env.SMTP_USER || dbConfig?.smtp_user || '').trim();
+  const rawSmtpPass = process.env.SMTP_PASS || dbConfig?.smtp_pass || '';
+  const smtpPass = rawSmtpPass.trim().replace(/\s+/g, '');
+  const smtpHost = (process.env.SMTP_HOST || dbConfig?.smtp_host || 'smtp.gmail.com').trim();
   const smtpPort = Number(process.env.SMTP_PORT || dbConfig?.smtp_port) || 587;
   const smtpSecure = process.env.SMTP_SECURE === 'true' || Number(dbConfig?.smtp_secure) === 1;
   const senderName = process.env.SENDER_NAME || dbConfig?.sender_name || 'I.E. San Nicolás de Tolentino';
-  const senderEmail = process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com';
+  const senderEmail = (process.env.SENDER_EMAIL || dbConfig?.sender_email || smtpUser || 'notificaciones.sannicolas@gmail.com').trim();
 
   const isDemoCredential = !smtpPass || 
     smtpPass.includes('demo') || 
@@ -641,19 +643,22 @@ export async function testSmtpConnection(
     sender_email: string;
   }
 ): Promise<EmailSendResult> {
-  if (!config.smtp_user) {
+  const userClean = (config.smtp_user || '').trim();
+  const passClean = (config.smtp_pass || '').trim().replace(/\s+/g, '');
+
+  if (!userClean) {
     return {
       success: false,
       message: 'Debes ingresar el usuario o correo remitente.'
     };
   }
 
-  const isDemo = !config.smtp_pass || 
-    config.smtp_pass.includes('demo') || 
-    config.smtp_pass.includes('test') || 
-    config.smtp_user.includes('demo') ||
-    config.smtp_user.includes('ejemplo') ||
-    config.smtp_user === 'notificaciones.sannicolas@gmail.com';
+  const isDemo = !passClean || 
+    passClean.includes('demo') || 
+    passClean.includes('test') || 
+    userClean.includes('demo') ||
+    userClean.includes('ejemplo') ||
+    userClean === 'notificaciones.sannicolas@gmail.com';
 
   if (isDemo) {
     return {

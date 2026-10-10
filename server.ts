@@ -1514,7 +1514,7 @@ app.post('/api/email/config', (req: Request, res: Response): any => {
     } = req.body;
 
     const existing = queryOne('SELECT smtp_pass FROM email_config WHERE id = 1');
-    const finalPass = (smtp_pass && smtp_pass !== '••••••••') ? smtp_pass : (existing ? existing.smtp_pass : '');
+    const finalPass = (smtp_pass && smtp_pass !== '••••••••') ? smtp_pass.trim().replace(/\s+/g, '') : (existing ? existing.smtp_pass : '');
 
     run(
       `INSERT OR REPLACE INTO email_config 
@@ -1553,13 +1553,13 @@ app.post('/api/email/test', async (req: Request, res: Response): Promise<any> =>
 
     const currentConfig = queryOne('SELECT * FROM email_config WHERE id = 1') || {};
     const effectiveConfig = {
-      smtp_host: config?.smtp_host || currentConfig.smtp_host || 'smtp.gmail.com',
+      smtp_host: (config?.smtp_host || currentConfig.smtp_host || 'smtp.gmail.com').trim(),
       smtp_port: Number(config?.smtp_port || currentConfig.smtp_port) || 587,
       smtp_secure: Boolean(config?.smtp_secure !== undefined ? config.smtp_secure : currentConfig.smtp_secure),
-      smtp_user: config?.smtp_user || currentConfig.smtp_user || '',
-      smtp_pass: (config?.smtp_pass && config.smtp_pass !== '••••••••') ? config.smtp_pass : (currentConfig.smtp_pass || ''),
-      sender_name: config?.sender_name || currentConfig.sender_name || 'Colegio San Nicolás de Tolentino',
-      sender_email: config?.sender_email || currentConfig.sender_email || ''
+      smtp_user: (config?.smtp_user || currentConfig.smtp_user || '').trim(),
+      smtp_pass: (config?.smtp_pass && config.smtp_pass !== '••••••••') ? config.smtp_pass.trim().replace(/\s+/g, '') : (currentConfig.smtp_pass || ''),
+      sender_name: (config?.sender_name || currentConfig.sender_name || 'Colegio San Nicolás de Tolentino').trim(),
+      sender_email: (config?.sender_email || currentConfig.sender_email || '').trim()
     };
 
     const result = await testSmtpConnection(test_recipient, effectiveConfig);
