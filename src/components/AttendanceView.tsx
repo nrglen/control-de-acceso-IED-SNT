@@ -13,7 +13,6 @@ import {
   Eye,
   AlertTriangle,
   PlusCircle,
-  Mail,
   MessageSquare,
   LogOut
 } from 'lucide-react';
@@ -51,7 +50,6 @@ export const AttendanceView: React.FC<Props> = ({
   const [viewMode, setViewMode] = useState<'tabla' | 'tarjetas'>('tabla');
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<Estudiante | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
-  const [emailStatusMsg, setEmailStatusMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const nombreColegio = appSettings?.nombre_colegio || 'I.E. SAN NICOLÁS DE TOLENTINO';
   const grado = appSettings?.grado || '6° - 1';
@@ -106,13 +104,29 @@ export const AttendanceView: React.FC<Props> = ({
     setSelectedStudentForDetail(student);
   };
 
-  // Direct WhatsApp notification to parent
-  const handleNotifyWhatsApp = (student: Estudiante, attendance: Asistencia, e?: React.MouseEvent) => {
+  // Direct WhatsApp notification to parent (Entry, Exit or Absence)
+  const handleNotifyWhatsApp = (student: Estudiante, attendance?: Asistencia, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const esTarde = (attendance.minutos_retraso || 0) > 0;
     const cleanPhone = (student.acudiente_contacto || '').replace(/[^0-9]/g, '');
+    if (!cleanPhone) {
+      alert(`El estudiante ${student.nombre} no tiene número telefónico de acudiente registrado.`);
+      return;
+    }
     const phone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
-    const msg = `🏫 *${nombreColegio} - Control de Asistencia*\nEstimado(a) *${student.acudiente_nombre || 'Acudiente'}*,\nLe confirmamos que su hijo(a) *${student.nombre}* ha registrado su asistencia en el *${salon}* hoy a las *${attendance.hora}*.\n📌 *Estado:* ${!esTarde ? '✅ Puntual (A tiempo)' : `⚠️ Entrada con retraso (+${attendance.minutos_retraso} min)`}\n👨‍🏫 *Docente:* ${profesor} - ${asignatura}`;
+    let msg = '';
+
+    if (attendance) {
+      const isSalida = Boolean(attendance.hora_salida);
+      const esTarde = (attendance.minutos_retraso || 0) > 0;
+      if (isSalida) {
+        msg = `🏫 *${nombreColegio} - Control de Asistencia*\nEstimado(a) *${student.acudiente_nombre || 'Acudiente'}*,\nLe confirmamos que su hijo(a) *${student.nombre}* (${student.grado}) registró su *SALIDA* del colegio hoy a las *${attendance.hora_salida}*.\n👋 ¡Que tenga un excelente día!`;
+      } else {
+        msg = `🏫 *${nombreColegio} - Control de Asistencia*\nEstimado(a) *${student.acudiente_nombre || 'Acudiente'}*,\nLe confirmamos que su hijo(a) *${student.nombre}* (${student.grado}) ha ingresado al *${salon}* hoy a las *${attendance.hora}*.\n📌 *Estado:* ${!esTarde ? '✅ Puntual (A tiempo)' : `⚠️ Entrada con retraso (+${attendance.minutos_retraso} min)`}\n👨‍🏫 *Docente:* ${profesor} - ${asignatura}`;
+      }
+    } else {
+      msg = `🏫 *${nombreColegio} - Reporte de Inasistencia*\nEstimado(a) *${student.acudiente_nombre || 'Acudiente'}*,\nLe informamos que su hijo(a) *${student.nombre}* (${student.grado}) NO ha registrado asistencia el día de hoy (${selectedDate}) a la clase de *${asignatura}* en el *${salon}*.\nPor favor comunicarse con la institución si tiene alguna novedad o justificación.`;
+    }
+
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -454,16 +468,6 @@ export const AttendanceView: React.FC<Props> = ({
         </button>
       </div>
 
-      {/* Email Status Msg */}
-      {emailStatusMsg && (
-        <div className={`p-4 rounded-xl border text-xs flex items-center justify-between gap-2 ${
-          emailStatusMsg.type === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'
-        }`}>
-          <span>{emailStatusMsg.text}</span>
-          <button onClick={() => setEmailStatusMsg(null)} className="font-bold text-slate-400 hover:text-slate-600">✕</button>
-        </div>
-      )}
-
       {/* Main Container: Option 1 (Table) or Option 2 (Cards) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -609,66 +613,23 @@ export const AttendanceView: React.FC<Props> = ({
                             </span>
                           )}
 
-                          {attendance && student.acudiente_correo && (
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  const res = await fetch('/api/email/send-manual', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      estudiante_id: student.id,
-                                      estudiante_nombre: student.nombre,
-                                      estudiante_codigo: student.codigo,
-                                      grado: student.grado,
-                                      salon,
-                                      asignatura,
-                                      profesor,
-                                      fecha: selectedDate,
-                                      hora: attendance.hora,
-                                      minutos_retraso: attendance.minutos_retraso,
-                                      acudiente_nombre: student.acudiente_nombre,
-                                      acudiente_correo: student.acudiente_correo
-                                    })
-                                  });
-
-                                  const contentType = res.headers.get('content-type') || '';
-                                  if (!contentType.includes('application/json')) {
-                                    throw new Error(`El servidor respondió con estado ${res.status}. Por favor espera unos segundos y reintenta.`);
-                                  }
-
-                                  const data = await res.json();
-                                  if (data.success) {
-                                    setEmailStatusMsg({ type: 'ok', text: `✓ ${data.message || `Correo enviado a ${student.acudiente_correo}`}` });
-                                  } else {
-                                    setEmailStatusMsg({ type: 'err', text: data.message || 'No se pudo enviar el correo' });
-                                  }
-                                  setTimeout(() => setEmailStatusMsg(null), 5000);
-                                } catch (err: any) {
-                                  setEmailStatusMsg({ type: 'err', text: err.message || 'Error al enviar correo' });
-                                  setTimeout(() => setEmailStatusMsg(null), 5000);
-                                }
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
-                              title={`Enviar correo al acudiente`}
-                            >
-                              <Mail className="w-3.5 h-3.5 text-red-600" />
-                              <span className="hidden xl:inline">Correo</span>
-                            </button>
-                          )}
-
-                          {attendance && student.acudiente_contacto && (
+                          {/* WhatsApp 1-Clic Notification */}
+                          {student.acudiente_contacto ? (
                             <button
                               type="button"
                               onClick={(e) => handleNotifyWhatsApp(student, attendance, e)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
-                              title={`Notificar por WhatsApp`}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                                attendance
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                                  : 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
+                              }`}
+                              title={attendance ? "Notificar Asistencia/Salida por WhatsApp" : "Notificar Inasistencia al Acudiente"}
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="hidden md:inline">WhatsApp</span>
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">{attendance ? 'WhatsApp' : 'Avisar Falta'}</span>
                             </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium italic hidden sm:inline">Sin Tel.</span>
                           )}
 
                           <button
@@ -787,12 +748,16 @@ export const AttendanceView: React.FC<Props> = ({
                         </span>
                       )}
 
-                      {attendance && student.acudiente_contacto && (
+                      {student.acudiente_contacto && (
                         <button
                           type="button"
                           onClick={(e) => handleNotifyWhatsApp(student, attendance, e)}
-                          className="p-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors cursor-pointer"
-                          title="Enviar WhatsApp"
+                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            attendance
+                              ? 'text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
+                              : 'text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border-amber-200'
+                          }`}
+                          title={attendance ? "Enviar WhatsApp de Asistencia/Salida" : "Notificar Inasistencia por WhatsApp"}
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
                         </button>

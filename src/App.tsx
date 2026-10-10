@@ -7,7 +7,6 @@ import { SimulatorBar } from './components/SimulatorBar';
 import { AttendanceKioskOverlay } from './components/AttendanceKioskOverlay';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { ParentNotificationsModal } from './components/ParentNotificationsModal';
-import { EmailConfigModal } from './components/EmailConfigModal';
 import { SettingsModal } from './components/SettingsModal';
 import { Estudiante, Asistencia, Lectura, ModoInfo, SystemStats, AppSettings } from './types';
 import { playScanSound } from './utils/audio';
@@ -59,12 +58,11 @@ export default function App() {
   const lastLecturaIdRef = useRef<number | null>(null);
   const isFirstLoadRef = useRef(true);
 
-  // Admin authentication for Protected Tabs & Settings
+  // Admin authentication for Protected Settings
   const [isAdminAuth, setIsAdminAuth] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'estudiantes' | 'ajustes' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'ajustes' | null>(null);
   const [showParentNotificationsModal, setShowParentNotificationsModal] = useState(false);
-  const [showEmailConfigModal, setShowEmailConfigModal] = useState(false);
 
   // Fetch App Settings
   const fetchAppSettings = useCallback(async () => {
@@ -270,13 +268,8 @@ export default function App() {
     return json;
   };
 
-  // Handle Tab Navigation with simple password protection
+  // Handle Tab Navigation (direct access without password)
   const handleSelectTab = (tab: 'asistencia' | 'estudiantes') => {
-    if (tab === 'estudiantes' && !isAdminAuth) {
-      setPendingAction('estudiantes');
-      setShowAuthModal(true);
-      return;
-    }
     setCurrentTab(tab);
   };
 
@@ -293,10 +286,7 @@ export default function App() {
   const handleAuthSuccess = () => {
     setIsAdminAuth(true);
     setShowAuthModal(false);
-    if (pendingAction === 'estudiantes') {
-      setCurrentTab('estudiantes');
-      setPendingAction(null);
-    } else if (pendingAction === 'ajustes') {
+    if (pendingAction === 'ajustes') {
       setShowSettingsModal(true);
       setPendingAction(null);
     }
@@ -354,7 +344,6 @@ export default function App() {
           setAppSettings((prev) => ({ ...prev, logo_url: newLogoUrl }));
         }}
         onOpenParentNotifications={() => setShowParentNotificationsModal(true)}
-        onOpenEmailConfig={() => setShowEmailConfigModal(true)}
       />
 
       {/* Parent Notifications & WhatsApp Center Modal */}
@@ -362,12 +351,6 @@ export default function App() {
         isOpen={showParentNotificationsModal}
         onClose={() => setShowParentNotificationsModal(false)}
         students={students}
-      />
-
-      {/* Email SMTP Configuration & Testing Modal */}
-      <EmailConfigModal
-        isOpen={showEmailConfigModal}
-        onClose={() => setShowEmailConfigModal(false)}
       />
 
       {/* Main School Header */}

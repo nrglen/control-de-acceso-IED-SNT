@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { 
   X, 
-  Mail, 
-  User, 
-  Phone, 
+  User,
+  Phone,
   Calendar, 
   Clock, 
   MapPin, 
@@ -39,8 +38,6 @@ interface Props {
 export const StudentDetailModal: React.FC<Props> = ({ student, onClose }) => {
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [isLoadingHistorial, setIsLoadingHistorial] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailFeedback, setEmailFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!student) return;
@@ -171,77 +168,7 @@ export const StudentDetailModal: React.FC<Props> = ({ student, onClose }) => {
                 </span>
               </div>
 
-              {/* Correo del Acudiente */}
-              <div>
-                <span className="text-[11px] text-amber-700/80 block font-medium">Correo Electrónico para Notificaciones</span>
-                <div className="flex items-center justify-between mt-1 flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                    <Mail className="w-4 h-4 text-blue-600" />
-                    <span>{student.acudiente_correo || 'Sin correo de notificaciones'}</span>
-                  </div>
 
-                  {student.acudiente_correo && (
-                    <div className="flex flex-col items-end gap-1.5">
-                      <button
-                        type="button"
-                        disabled={isSendingEmail}
-                        onClick={async () => {
-                          setIsSendingEmail(true);
-                          setEmailFeedback(null);
-                          try {
-                            const res = await fetch('/api/email/send-manual', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                estudiante_id: student.id,
-                                estudiante_nombre: student.nombre,
-                                estudiante_codigo: student.codigo,
-                                grado: student.grado,
-                                salon: 'Salón de Informática',
-                                asignatura: 'Informática y Tecnología',
-                                profesor: 'Prof. Roberto Gómez',
-                                acudiente_nombre: student.acudiente_nombre,
-                                acudiente_correo: student.acudiente_correo
-                              })
-                            });
-
-                            const contentType = res.headers.get('content-type') || '';
-                            if (!contentType.includes('application/json')) {
-                              throw new Error(`El servidor respondió con código ${res.status} (posible reinicio en curso). Espera unos segundos y reintenta.`);
-                            }
-
-                            const data = await res.json();
-                            if (data.success) {
-                              setEmailFeedback({ ok: true, text: data.message || '✓ Correo enviado con éxito' });
-                            } else {
-                              setEmailFeedback({ ok: false, text: data.message || 'No se pudo enviar el correo' });
-                            }
-                            setTimeout(() => setEmailFeedback(null), 5000);
-                          } catch (err: any) {
-                            setEmailFeedback({ ok: false, text: err.message || 'Error de conexión' });
-                            setTimeout(() => setEmailFeedback(null), 5000);
-                          } finally {
-                            setIsSendingEmail(false);
-                          }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                        title="Enviar comprobante de asistencia al correo del acudiente"
-                      >
-                        <Mail className={`w-3.5 h-3.5 ${isSendingEmail ? 'animate-bounce' : ''}`} />
-                        <span>{isSendingEmail ? 'Enviando...' : 'Notificar por Correo'}</span>
-                      </button>
-
-                      {emailFeedback && (
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                          emailFeedback.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {emailFeedback.text}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
 
               <div>
                 <span className="text-[11px] text-amber-700/80 block font-medium">Contacto / Teléfono</span>

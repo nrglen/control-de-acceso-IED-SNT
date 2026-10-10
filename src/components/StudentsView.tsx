@@ -392,29 +392,10 @@ export const StudentsView: React.FC<Props> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Registration Mode Button */}
-          {modoInfo.modo === 'asistencia' ? (
-            <button
-              onClick={onActivateModoRegistro}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-amber-200 cursor-pointer"
-            >
-              <Radio className="w-4 h-4 animate-pulse" />
-              <span>Registrar Tarjeta Nueva</span>
-            </button>
-          ) : (
-            <button
-              onClick={onCancelModoRegistro}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              <Clock className="w-4 h-4 text-amber-400" />
-              <span>Modo Registro Activo ({modoInfo.segundos_restantes}s) - Cancelar</span>
-            </button>
-          )}
-
-          {/* New Student Manual Button */}
+          {/* New Student Button */}
           <button
             onClick={handleOpenCreate}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer hover:scale-102"
           >
             <UserPlus className="w-4 h-4" />
             <span>Nuevo Estudiante</span>
@@ -494,7 +475,7 @@ export const StudentsView: React.FC<Props> = ({
             <Users className="w-12 h-12 text-slate-300 mx-auto mb-2" />
             <h3 className="text-sm font-bold text-slate-700">No se encontraron estudiantes</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Haga clic en "Nuevo Estudiante" o "Registrar Tarjeta Nueva" para registrar alumnos.
+              Haga clic en "Nuevo Estudiante" para registrar alumnos y asignar sus tarjetas RFID.
             </p>
           </div>
         ) : (

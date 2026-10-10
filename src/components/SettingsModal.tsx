@@ -1650,68 +1650,70 @@ export const SettingsModal: React.FC<Props> = ({
           )}
 
           {/* ============================================================ */}
-          {/* TAB 6: NOTIFICACIONES (WHATSAPP Y CORREO)                   */}
+          {/* TAB 6: NOTIFICACIONES (WHATSAPP)                             */}
           {/* ============================================================ */}
           {activeTab === 'notificaciones' && (
             <div className="space-y-6">
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200">
-                  <Mail className="w-5 h-5 text-emerald-600" />
+                  <MessageSquare className="w-5 h-5 text-emerald-600" />
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                    Notificaciones a Padres (WhatsApp y Correo)
+                    Centro de Notificaciones por WhatsApp
                   </h3>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Administra y configura los canales de notificación automática para informar a los padres de familia cuando sus hijos ingresen a la institución o si registran alguna inasistencia.
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  El sistema utiliza notificaciones directas por WhatsApp (mediante enlaces universales <code className="font-mono bg-slate-200 px-1 py-0.5 rounded text-slate-800">wa.me</code>) para informar a los acudientes sobre el ingreso, salida o inasistencia de las estudiantes de forma rápida, segura y sin bloqueos de servidor.
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  {/* WhatsApp Config Card */}
-                  <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-3.5 flex flex-col justify-between shadow-xs">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 font-black text-sm text-emerald-700">
-                        <MessageSquare className="w-5 h-5 text-emerald-600" />
-                        <span>Notificaciones por WhatsApp</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Envía mensajes automáticos directamente al número de contacto de los acudientes con plantillas personalizadas de asistencia.
-                      </p>
+                {/* WhatsApp Config Card */}
+                <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-4 shadow-xs">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 font-black text-sm text-emerald-700">
+                      <MessageSquare className="w-5 h-5 text-emerald-600" />
+                      <span>Panel de Envíos y Avisos a Padres</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        if (onOpenParentNotifications) onOpenParentNotifications();
-                      }}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/10"
-                    >
-                      <MessageSquare className="w-4 h-4 text-amber-300" />
-                      <span>Abrir Panel de WhatsApp</span>
-                    </button>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Abre el panel interactivo para seleccionar estudiantes, simular mensajes de puntualidad, retraso o inasistencia y enviarlos con un solo clic.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenParentNotifications) onOpenParentNotifications();
+                    }}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/10"
+                  >
+                    <MessageSquare className="w-4 h-4 text-amber-300" />
+                    <span>Abrir Panel de WhatsApp y Simulador</span>
+                  </button>
+                </div>
+
+                {/* Paso a paso y explicación sobre Render */}
+                <div className="p-4 bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl text-xs text-slate-700 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-900 font-black text-sm">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>¿Por qué se eliminó el correo y por qué WhatsApp es la mejor opción en Render?</span>
+                  </div>
+                  
+                  <div className="space-y-2 text-[11px] leading-relaxed text-slate-600">
+                    <p>
+                      <strong>1. Restricción en Render Gratis (SMTP):</strong> Los servidores gratuitos de Render bloquean por completo los puertos de correo saliente estándar (puertos 465 y 587) como medida contra el spam. Esto hacía que el envío automático de correos fallara constantemente con errores de conexión (<code className="font-mono">ETIMEDOUT</code>).
+                    </p>
+                    <p>
+                      <strong>2. Confiabilidad de WhatsApp (<code className="font-mono">wa.me</code>):</strong> Al usar enlaces directos de WhatsApp, la aplicación abre el chat oficial con el número del acudiente y el mensaje preformateado (indicando nombre, hora de entrada/salida y estado). Funciona al 100% en cualquier dispositivo (computador, tablet o celular) sin depender de servidores SMTP externos.
+                    </p>
                   </div>
 
-                  {/* Email Config Card */}
-                  <div className="bg-white border border-slate-200 p-5 rounded-2xl space-y-3.5 flex flex-col justify-between shadow-xs">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 font-black text-sm text-red-700">
-                        <Mail className="w-5 h-5 text-red-600" />
-                        <span>Notificaciones por Correo Electrónico</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Configura tu servidor de correo SMTP (Gmail, Outlook, etc.) para despachar alertas de entrada tarde e inasistencias de manera automatizada.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        if (onOpenEmailConfig) onOpenEmailConfig();
-                      }}
-                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Mail className="w-4 h-4 text-amber-400" />
-                      <span>Abrir Panel de Correo</span>
-                    </button>
+                  <div className="pt-2 border-t border-amber-200/60">
+                    <h5 className="font-black text-amber-950 text-xs mb-1.5">
+                      Paso a paso para configurar y usar las notificaciones:
+                    </h5>
+                    <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-700">
+                      <li><strong>Registrar Teléfono:</strong> Asegúrate de que cada estudiante tenga el número de teléfono del acudiente guardado en su perfil (pestaña <em>Estudiantes</em> ➔ <em>Editar</em>).</li>
+                      <li><strong>Escanear o Revisar:</strong> Al escanear la tarjeta en el Kiosco o al revisar la tabla de asistencia diaria, haz clic en el botón verde <strong>"WhatsApp"</strong> o <strong>"Avisar Falta"</strong>.</li>
+                      <li><strong>Enviar:</strong> Se abrirá la aplicación de WhatsApp con el mensaje listo para enviar de manera inmediata al padre o acudiente.</li>
+                    </ol>
                   </div>
                 </div>
               </div>
