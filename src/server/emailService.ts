@@ -875,9 +875,8 @@ export async function testSmtpConnection(
   const rawPass = (config.smtp_pass || '').trim().replace(/\s+/g, '');
   const isDemo = !rawPass || rawPass.includes('demo') || rawPass.includes('test') || rawUser.includes('demo') || rawUser.includes('ejemplo');
 
-  // If user is empty or still points to legacy demo, fallback to the confirmed working App Password
-  const userClean = (rawUser && !rawUser.includes('sannicolas')) ? rawUser : 'nadinsonramos@gmail.com';
-  const passClean = (rawPass && !rawPass.includes('demo') && rawPass !== '••••••••') ? rawPass : 'ebqfongfsfktuxyn';
+  const userClean = rawUser;
+  const passClean = rawPass;
 
   // Check if testing via Resend API (starts with re_)
   if (passClean.startsWith('re_')) {
