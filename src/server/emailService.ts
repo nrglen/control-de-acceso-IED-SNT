@@ -387,6 +387,54 @@ async function sendViaResend(params: {
 }
 
 /**
+ * Dispatches email via Brevo REST API (HTTPS port 443 - allows sending to ANY recipient without custom domain)
+ */
+async function sendViaBrevo(params: {
+  apiKey: string;
+  senderName: string;
+  senderEmail: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<EmailSendResult> {
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': params.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: params.senderName,
+          email: params.senderEmail || 'nrg9506@gmail.com'
+        },
+        to: [{ email: params.to }],
+        subject: params.subject,
+        htmlContent: params.html
+      })
+    });
+
+    const data: any = await res.json();
+    if (res.ok && (data.messageId || data.id)) {
+      return {
+        success: true,
+        message: `¡Correo enviado exitosamente vía Brevo API a ${params.to}!`
+      };
+    }
+    return {
+      success: false,
+      message: `Error de Brevo: ${data.message || JSON.stringify(data)}`
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Error conectando a Brevo API: ${err.message}`
+    };
+  }
+}
+
+/**
  * Creates an optimal nodemailer transporter that automatically uses service: 'gmail'
  * with direct SSL on port 465 to prevent timeouts on cloud platforms like Render.
  */
@@ -552,6 +600,24 @@ export async function sendGuardianAttendanceEmail(params: {
       return resendRes;
     }
 
+    if (smtpPass.startsWith('xkeysib-')) {
+      const brevoRes = await sendViaBrevo({
+        apiKey: smtpPass,
+        senderName,
+        senderEmail,
+        to: acudienteCorreo,
+        subject,
+        html: htmlContent
+      });
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, brevoRes.success ? 'enviado' : 'error', `${fecha} ${hora}`, brevoRes.message]
+        );
+      } catch (e) {}
+      return brevoRes;
+    }
+
     try {
       const transporter = createOptimalTransporter({
         host: smtpHost,
@@ -709,6 +775,24 @@ export async function sendGuardianAbsenceEmail(params: {
       return resendRes;
     }
 
+    if (smtpPass.startsWith('xkeysib-')) {
+      const brevoRes = await sendViaBrevo({
+        apiKey: smtpPass,
+        senderName,
+        senderEmail,
+        to: acudienteCorreo,
+        subject,
+        html: htmlContent
+      });
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, brevoRes.success ? 'enviado' : 'error', `${fecha} ${nowTime}`, brevoRes.message]
+        );
+      } catch (e) {}
+      return brevoRes;
+    }
+
     try {
       const transporter = createOptimalTransporter({
         host: smtpHost,
@@ -811,6 +895,28 @@ export async function testSmtpConnection(
           </div>
           <p style="color:#334155; font-size:14px; line-height:22px;">
             Este correo confirma que el servidor de control de asistencia escolar en Render está listo para enviar notificaciones automáticas por la API web HTTPS sin restricciones de puertos de Render.
+          </p>
+        </div>
+      `
+    });
+  }
+
+  // Check if testing via Brevo API (starts with xkeysib-)
+  if (passClean.startsWith('xkeysib-')) {
+    return sendViaBrevo({
+      apiKey: passClean,
+      senderName: config.sender_name || 'I.E. San Nicolás de Tolentino',
+      senderEmail: userClean,
+      to: testRecipient,
+      subject: '✓ Prueba Exitosa: Notificaciones I.E. San Nicolás de Tolentino (vía Brevo API)',
+      html: `
+        <div style="font-family:sans-serif; padding:24px; background:#fffbeb; border-radius:14px; border:2px solid #facc15; max-width:550px; margin:0 auto;">
+          <h2 style="color:#b91c1c; margin-top:0; text-transform:uppercase;">I.E. San Nicolás de Tolentino</h2>
+          <div style="padding:12px 16px; background:#f0fdf4; color:#15803d; border-radius:8px; font-weight:bold; margin-bottom:15px; border:1px solid #bbf7d0;">
+            ✓ ¡Conexión Brevo API (HTTPS) Verificada con Éxito!
+          </div>
+          <p style="color:#334155; font-size:14px; line-height:22px;">
+            Este correo confirma que el servidor de control de asistencia escolar en Render puede enviar notificaciones automáticas a cualquier acudiente vía Brevo API.
           </p>
         </div>
       `
