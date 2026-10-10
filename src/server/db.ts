@@ -185,6 +185,7 @@ export interface Asistencia {
   observacion?: string | null;
   fecha: string;
   hora: string;
+  hora_salida?: string | null;
 }
 
 export interface Lectura {
@@ -317,6 +318,7 @@ export async function initDatabase() {
       observacion TEXT,
       fecha TEXT NOT NULL,
       hora TEXT NOT NULL,
+      hora_salida TEXT,
       FOREIGN KEY (estudiante_id) REFERENCES estudiantes (id)
     );
 
@@ -354,6 +356,7 @@ export async function initDatabase() {
   try { db.run("ALTER TABLE lecturas ADD COLUMN metodo TEXT DEFAULT 'rfid';"); } catch (e) {}
   try { db.run("ALTER TABLE app_settings ADD COLUMN horario_semanal TEXT;"); } catch (e) {}
   try { db.run("ALTER TABLE app_settings ADD COLUMN hora_finalizacion TEXT DEFAULT '14:00';"); } catch (e) {}
+  try { db.run("ALTER TABLE asistencias ADD COLUMN hora_salida TEXT;"); } catch (e) {}
 
   // Populate sample guardian emails if null
   try {
@@ -403,123 +406,109 @@ export async function initDatabase() {
     );
   }
 
-  // Forzar que la base de datos contenga ÚNICAMENTE las 8 alumnas oficiales del PDF
+  // Asegurar las 8 estudiantes oficiales sin borrar registros ni fotos existentes
   try {
-    const hasOfficial = queryOne("SELECT id FROM estudiantes WHERE uid = 'B4C91305'");
-    const countRow = queryOne<{ count: number }>("SELECT COUNT(*) as count FROM estudiantes");
-    
-    if (!hasOfficial || !countRow || countRow.count !== 8) {
-      console.log('[Migration] No se encontraron las 8 alumnas oficiales o la base de datos está desactualizada. Re-inicializando...');
-      
-      // Limpiar datos antiguos para evitar violación de llaves foráneas
-      run("DELETE FROM asistencias");
-      run("DELETE FROM lecturas");
-      run("DELETE FROM estudiantes");
-      
-      const defaultStudents = [
-        {
-          uid: 'B4C91305',
-          codigo: 'EST-601-001',
-          nombre: 'Victoria Santiago Morron',
-          grado: '6° - 1',
-          correo: 'victoria.santiago@sannicolas.edu.co',
-          acudiente_nombre: 'Marla Morron',
-          acudiente_contacto: '3135710894',
-          acudiente_correo: 'Marlamorron2018@gmail.com',
-          foto: null
-        },
-        {
-          uid: 'D9E04A07',
-          codigo: 'EST-601-002',
-          nombre: 'Evangelyn Blanco Gonzalez',
-          grado: '6° - 1',
-          correo: 'evangelyn.blanco@sannicolas.edu.co',
-          acudiente_nombre: 'Katherine Gonzalez',
-          acudiente_contacto: '3043894541',
-          acudiente_correo: 'kate.30.gonzalezbarreto@gmail.com',
-          foto: null
-        },
-        {
-          uid: 'D3AD4B07',
-          codigo: 'EST-601-003',
-          nombre: 'Shadia Hernandez Martinez',
-          grado: '6° - 1',
-          correo: 'shadia.hernandez@sannicolas.edu.co',
-          acudiente_nombre: 'ARILEDYS MARTINEZ HERNANDEZ',
-          acudiente_contacto: '3013012510',
-          acudiente_correo: 'ariledysmartinez@hotmail.com',
-          foto: null
-        },
-        {
-          uid: 'A39A4B07',
-          codigo: 'EST-601-004',
-          nombre: 'Angelina Hernández Hernández',
-          grado: '6° - 1',
-          correo: 'angelina.hernandez@sannicolas.edu.co',
-          acudiente_nombre: 'Fairuth Hernandez Correa',
-          acudiente_contacto: '3154261103',
-          acudiente_correo: 'fairuthhernandez8@gmail.com',
-          foto: null
-        },
-        {
-          uid: '3C2E4807',
-          codigo: 'EST-601-005',
-          nombre: 'Ángeles Herrera Rodelo',
-          grado: '6° - 1',
-          correo: 'angeles.herrera@sannicolas.edu.co',
-          acudiente_nombre: 'Luz Rodelo',
-          acudiente_contacto: '3217208933',
-          acudiente_correo: 'Luzmerylu@gmail.com',
-          foto: null
-        },
-        {
-          uid: 'F4244B07',
-          codigo: 'EST-601-006',
-          nombre: 'Isabel Acevedo Martínez',
-          grado: '6° - 1',
-          correo: 'isabel.acevedo@sannicolas.edu.co',
-          acudiente_nombre: 'María Camila Serje Maury',
-          acudiente_contacto: '3014878651',
-          acudiente_correo: 'serjemaurycamila@gmail.com',
-          foto: null
-        },
-        {
-          uid: 'B5554B07',
-          codigo: 'EST-601-007',
-          nombre: 'Luna shairet polo bolivar',
-          grado: '6° - 1',
-          correo: 'luna.polo@sannicolas.edu.co',
-          acudiente_nombre: 'Kandy Patricia bolivar Fajardo',
-          acudiente_contacto: '3015956179',
-          acudiente_correo: 'kandy0612@hotmail.com',
-          foto: null
-        },
-        {
-          uid: 'AC9B4B07',
-          codigo: 'EST-601-008',
-          nombre: 'Maria José Hernández Valest',
-          grado: '6° - 1',
-          correo: 'maria.hernandez@sannicolas.edu.co',
-          acudiente_nombre: 'Lenny Valest',
-          acudiente_contacto: '3188335000',
-          acudiente_correo: 'lennyvalest@gmail.com',
-          foto: null
-        }
-      ];
+    const defaultStudents = [
+      {
+        uid: 'B4C91305',
+        codigo: 'EST-601-001',
+        nombre: 'Victoria Santiago Morron',
+        grado: '6° - 1',
+        correo: 'victoria.santiago@sannicolas.edu.co',
+        acudiente_nombre: 'Marla Morron',
+        acudiente_contacto: '3135710894',
+        acudiente_correo: 'Marlamorron2018@gmail.com'
+      },
+      {
+        uid: 'D9E04A07',
+        codigo: 'EST-601-002',
+        nombre: 'Evangelyn Blanco Gonzalez',
+        grado: '6° - 1',
+        correo: 'evangelyn.blanco@sannicolas.edu.co',
+        acudiente_nombre: 'Katherine Gonzalez',
+        acudiente_contacto: '3043894541',
+        acudiente_correo: 'kate.30.gonzalezbarreto@gmail.com'
+      },
+      {
+        uid: 'D3AD4B07',
+        codigo: 'EST-601-003',
+        nombre: 'Shadia Hernandez Martinez',
+        grado: '6° - 1',
+        correo: 'shadia.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'ARILEDYS MARTINEZ HERNANDEZ',
+        acudiente_contacto: '3013012510',
+        acudiente_correo: 'ariledysmartinez@hotmail.com'
+      },
+      {
+        uid: 'A39A4B07',
+        codigo: 'EST-601-004',
+        nombre: 'Angelina Hernández Hernández',
+        grado: '6° - 1',
+        correo: 'angelina.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'Fairuth Hernandez Correa',
+        acudiente_contacto: '3154261103',
+        acudiente_correo: 'fairuthhernandez8@gmail.com'
+      },
+      {
+        uid: '3C2E4807',
+        codigo: 'EST-601-005',
+        nombre: 'Ángeles Herrera Rodelo',
+        grado: '6° - 1',
+        correo: 'angeles.herrera@sannicolas.edu.co',
+        acudiente_nombre: 'Luz Rodelo',
+        acudiente_contacto: '3217208933',
+        acudiente_correo: 'Luzmerylu@gmail.com'
+      },
+      {
+        uid: 'F4244B07',
+        codigo: 'EST-601-006',
+        nombre: 'Isabel Acevedo Martínez',
+        grado: '6° - 1',
+        correo: 'isabel.acevedo@sannicolas.edu.co',
+        acudiente_nombre: 'María Camila Serje Maury',
+        acudiente_contacto: '3014878651',
+        acudiente_correo: 'serjemaurycamila@gmail.com'
+      },
+      {
+        uid: 'B5554B07',
+        codigo: 'EST-601-007',
+        nombre: 'Luna shairet polo bolivar',
+        grado: '6° - 1',
+        correo: 'luna.polo@sannicolas.edu.co',
+        acudiente_nombre: 'Kandy Patricia bolivar Fajardo',
+        acudiente_contacto: '3015956179',
+        acudiente_correo: 'kandy0612@hotmail.com'
+      },
+      {
+        uid: 'AC9B4B07',
+        codigo: 'EST-601-008',
+        nombre: 'Maria José Hernández Valest',
+        grado: '6° - 1',
+        correo: 'maria.hernandez@sannicolas.edu.co',
+        acudiente_nombre: 'Lenny Valest',
+        acudiente_contacto: '3188335000',
+        acudiente_correo: 'lennyvalest@gmail.com'
+      }
+    ];
 
-      for (const est of defaultStudents) {
+    let inserted = 0;
+    for (const est of defaultStudents) {
+      const existing = queryOne('SELECT id FROM estudiantes WHERE uid = ?', [est.uid]);
+      if (!existing) {
         run(
           `INSERT INTO estudiantes (codigo, uid, nombre, grado, correo, acudiente_nombre, acudiente_contacto, acudiente_correo, foto) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [est.codigo, est.uid, est.nombre, est.grado, est.correo, est.acudiente_nombre, est.acudiente_contacto, est.acudiente_correo, est.foto]
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+          [est.codigo, est.uid, est.nombre, est.grado, est.correo, est.acudiente_nombre, est.acudiente_contacto, est.acudiente_correo]
         );
+        inserted++;
       }
-      
-      console.log('[Migration] ¡Base de datos cargada exitosamente con las 8 estudiantes oficiales!');
+    }
+    if (inserted > 0) {
+      console.log(`[Migration] Insertadas ${inserted} estudiantes que faltaban sin tocar las existentes.`);
       saveDb();
     }
   } catch (err) {
-    console.error('Error al forzar la base de datos oficial:', err);
+    console.error('Error al verificar estudiantes:', err);
   }
 
   return db;

@@ -207,29 +207,37 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
         const puntualidad = calcularPuntualidad(hora, horaProgramada, appSettings.hora_limite);
         const minutosRetraso = puntualidad.minutosRetraso;
 
-        // Check if attendance already recorded today in this salon
-        const asistenciaHoy = queryOne(
-          'SELECT id, hora FROM asistencias WHERE estudiante_id = ? AND salon = ? AND fecha = ?',
-          [estudiante.id, salon, fecha]
+        // Check if attendance already recorded today (across any salon)
+        const asistenciaHoy = queryOne<{ id: number; hora: string; hora_salida?: string }>(
+          'SELECT id, hora, hora_salida FROM asistencias WHERE estudiante_id = ? AND fecha = ?',
+          [estudiante.id, fecha]
         );
 
         if (asistenciaHoy) {
-          // Already registered today in this salon -> do NOT duplicate
+          // Second scan today -> Register departure (Salida)
+          run(
+            'UPDATE asistencias SET hora_salida = ? WHERE id = ?',
+            [hora, asistenciaHoy.id]
+          );
+
           run(
             `INSERT INTO lecturas (uid, estudiante_id, salon, asignatura, profesor, hora_programada, minutos_retraso, metodo, estado, fecha_hora) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [normalizedUid, estudiante.id, salon, asignatura, profesor, horaProgramada, minutosRetraso, 'rfid', 'ya_registrada_hoy', fecha_hora]
+            [normalizedUid, estudiante.id, salon, asignatura, profesor, horaProgramada, 0, 'rfid', 'salida_registrada', fecha_hora]
           );
+
           return res.json({
             ok: true,
-            estado: 'ya_registrada_hoy',
+            estado: 'salida_registrada',
             nombre: estudiante.nombre,
             codigo: estudiante.codigo,
             grado: estudiante.grado,
             asignatura,
             profesor,
             hora_programada: horaProgramada,
-            minutos_retraso: minutosRetraso
+            hora_salida: hora,
+            hora_entrada: asistenciaHoy.hora,
+            minutos_retraso: 0
           });
         } else {
           // Record attendance
@@ -529,6 +537,7 @@ app.get('/api/asistencias', (req: Request, res: Response) => {
       a.observacion,
       a.fecha,
       a.hora,
+      a.hora_salida,
       e.codigo,
       e.nombre,
       e.grado,

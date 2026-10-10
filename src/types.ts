@@ -69,6 +69,7 @@ export interface Asistencia {
   observacion?: string | null;
   fecha: string;
   hora: string;
+  hora_salida?: string | null;
 }
 
 export interface Lectura {

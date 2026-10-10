@@ -328,9 +328,16 @@ export const StudentDetailModal: React.FC<Props> = ({ student, onClose }) => {
                               </div>
                             </td>
                             <td className="py-2.5 px-3 font-mono font-bold text-slate-700">
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                <span>{reg.hora}</span>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>{reg.hora}</span>
+                                </div>
+                                {reg.hora_salida && (
+                                  <span className="text-[10px] text-indigo-700 font-semibold">
+                                    Salida: {reg.hora_salida}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="py-2.5 px-3 text-slate-600 font-medium">

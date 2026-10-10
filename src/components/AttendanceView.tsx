@@ -14,7 +14,8 @@ import {
   AlertTriangle,
   PlusCircle,
   Mail,
-  MessageSquare
+  MessageSquare,
+  LogOut
 } from 'lucide-react';
 import { Asistencia, SystemStats, Estudiante, AppSettings } from '../types';
 import { StudentDetailModal } from './StudentDetailModal';
@@ -561,11 +562,19 @@ export const AttendanceView: React.FC<Props> = ({
                         </span>
                       </td>
 
-                      {/* Hora de Llegada */}
+                      {/* Hora de Llegada y Salida */}
                       <td className="py-3 px-4 font-mono font-bold text-slate-800 text-xs">
-                        <div className="flex items-center gap-1.5 text-slate-600">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{attendance?.hora || '—'}</span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 text-slate-700">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Entrada: {attendance?.hora || '—'}</span>
+                          </div>
+                          {attendance?.hora_salida && (
+                            <div className="flex items-center gap-1.5 text-indigo-700 font-semibold text-[11px]">
+                              <LogOut className="w-3 h-3 text-indigo-500" />
+                              <span>Salida: {attendance.hora_salida}</span>
+                            </div>
+                          )}
                         </div>
                       </td>
 
@@ -745,9 +754,17 @@ export const AttendanceView: React.FC<Props> = ({
 
                   {/* Arrival Time and Status Indicator */}
                   <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs gap-2">
-                    <div className="flex items-center gap-1 text-slate-600 font-mono font-bold">
-                      <Clock className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{attendance?.hora || '—'}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1 text-slate-700 font-mono font-bold">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Entrada: {attendance?.hora || '—'}</span>
+                      </div>
+                      {attendance?.hora_salida && (
+                        <div className="flex items-center gap-1 text-indigo-700 font-mono font-semibold text-[11px]">
+                          <LogOut className="w-3 h-3 text-indigo-500" />
+                          <span>Salida: {attendance.hora_salida}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5">

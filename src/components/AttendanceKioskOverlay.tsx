@@ -63,6 +63,7 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
 
   if (!lectura) return null;
 
+  const isSalida = lectura.estado === 'salida_registrada';
   const isDuplicate = lectura.estado === 'ya_registrada_hoy';
   const isUnregistered = lectura.estado === 'tarjeta_no_registrada';
   const isSuccess = lectura.estado === 'asistencia_registrada';
@@ -96,14 +97,23 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
     bg: esTarde ? 'bg-amber-600' : 'bg-emerald-600',
     headerBg: esTarde ? 'bg-linear-to-r from-amber-600 to-amber-700' : 'bg-linear-to-r from-emerald-600 to-teal-700',
     border: esTarde ? 'border-amber-400' : 'border-emerald-400',
-    badgeText: esTarde ? 'ASISTENCIA REGISTRADA (ENTRADA TARDE)' : '¡ASISTENCIA REGISTRADA (PUNTUAL)!',
+    badgeText: esTarde ? '¡BIENVENIDO/A! - ENTRADA TARDE' : '¡BIENVENIDO/A! - ENTRADA PUNTUAL',
     icon: esTarde ? <AlertTriangle className="w-10 h-10 text-white" /> : <CheckCircle2 className="w-10 h-10 text-white" />,
     submessage: esTarde 
       ? `Ingreso después de las ${horaLimiteStr} (${retraso} min de retraso)` 
       : `Ingreso puntual a clase de ${lectura.asignatura || asignaturaDefault}.`
   };
 
-  if (isDuplicate) {
+  if (isSalida) {
+    theme = {
+      bg: 'bg-indigo-600',
+      headerBg: 'bg-linear-to-r from-indigo-600 to-purple-700',
+      border: 'border-indigo-400',
+      badgeText: `¡HASTA PRONTO, ${lectura.nombre || 'ESTUDIANTE'}!`,
+      icon: <CheckCircle2 className="w-10 h-10 text-white" />,
+      submessage: `Salida registrada exitosamente a las ${horaTexto}. ¡Que tengas un excelente día!`
+    };
+  } else if (isDuplicate) {
     theme = {
       bg: 'bg-blue-600',
       headerBg: 'bg-linear-to-r from-blue-600 to-indigo-700',
@@ -247,25 +257,32 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
                   </div>
                 </div>
 
-                {/* Hora de Entrada y Puntualidad */}
+                {/* Hora de Entrada o Salida y Puntualidad */}
                 <div className={`p-3 rounded-2xl border ${
-                  esTarde 
+                  isSalida
+                    ? 'bg-indigo-50/80 border-indigo-200 text-indigo-950'
+                    : esTarde 
                     ? 'bg-amber-50/80 border-amber-200 text-amber-950' 
                     : 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
                 }`}>
                   <div className="flex items-center justify-between text-xs font-bold mb-1">
                     <span className="flex items-center gap-1 text-slate-600">
-                      <Clock className="w-3.5 h-3.5" /> Hora Llegada
+                      <Clock className="w-3.5 h-3.5" /> {isSalida ? 'Hora de Salida' : 'Hora Llegada'}
                     </span>
                     <span className="font-mono text-xs font-black text-slate-900">
                       {horaTexto}
                     </span>
                   </div>
                   <div>
-                    {!esTarde ? (
+                    {isSalida ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-700">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Salida registrada con éxito</span>
+                      </span>
+                    ) : !esTarde ? (
                       <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>A tiempo (Antes de 8:40)</span>
+                        <span>A tiempo (Antes de {horaLimiteStr})</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-xs font-black text-rose-700">
@@ -275,7 +292,7 @@ export const AttendanceKioskOverlay: React.FC<Props> = ({ lectura, onClose, appS
                     )}
                   </div>
                   <div className="text-[10px] text-slate-500 mt-0.5">
-                    Entrada oficial: 08:30 AM (Límite: 08:40 AM)
+                    {isSalida ? 'Jornada escolar terminada' : `Entrada oficial: ${horaEntradaDefault} AM (Límite: ${horaLimiteStr} AM)`}
                   </div>
                 </div>
               </div>
