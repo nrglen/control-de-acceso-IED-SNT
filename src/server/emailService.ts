@@ -600,11 +600,11 @@ export async function sendGuardianAttendanceEmail(params: {
       return resendRes;
     }
 
-    if (smtpPass.startsWith('xkeysib-')) {
+    if (smtpPass.startsWith('xkeysib-') || smtpHost.includes('brevo')) {
       const brevoRes = await sendViaBrevo({
         apiKey: smtpPass,
         senderName,
-        senderEmail,
+        senderEmail: senderEmail || smtpUser || 'nrg9506@gmail.com',
         to: acudienteCorreo,
         subject,
         html: htmlContent
@@ -775,11 +775,11 @@ export async function sendGuardianAbsenceEmail(params: {
       return resendRes;
     }
 
-    if (smtpPass.startsWith('xkeysib-')) {
+    if (smtpPass.startsWith('xkeysib-') || smtpHost.includes('brevo')) {
       const brevoRes = await sendViaBrevo({
         apiKey: smtpPass,
         senderName,
-        senderEmail,
+        senderEmail: senderEmail || smtpUser || 'nrg9506@gmail.com',
         to: acudienteCorreo,
         subject,
         html: htmlContent
@@ -901,8 +901,8 @@ export async function testSmtpConnection(
     });
   }
 
-  // Check if testing via Brevo API (starts with xkeysib-)
-  if (passClean.startsWith('xkeysib-')) {
+  // Check if testing via Brevo API (starts with xkeysib- or host api.brevo.com)
+  if (passClean.startsWith('xkeysib-') || (config.smtp_host || '').includes('brevo')) {
     return sendViaBrevo({
       apiKey: passClean,
       senderName: config.sender_name || 'I.E. San Nicolás de Tolentino',

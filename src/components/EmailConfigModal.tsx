@@ -102,8 +102,17 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [activeTab, isOpen]);
 
   // Handle Preset Selection
-  const applyPreset = (preset: 'gmail' | 'resend' | 'outlook' | 'custom') => {
-    if (preset === 'resend') {
+  const applyPreset = (preset: 'brevo' | 'resend' | 'gmail' | 'outlook' | 'custom') => {
+    if (preset === 'brevo') {
+      setFormData(prev => ({
+        ...prev,
+        smtp_host: 'api.brevo.com',
+        smtp_port: 443,
+        smtp_secure: true,
+        sender_name: 'I.E. San Nicolás de Tolentino',
+        sender_email: prev.sender_email || prev.smtp_user || 'nrg9506@gmail.com'
+      }));
+    } else if (preset === 'resend') {
       setFormData(prev => ({
         ...prev,
         smtp_host: 'api.resend.com',
@@ -310,6 +319,28 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <p className="text-[12px] text-amber-900 leading-relaxed">
                   Para que los correos salgan a las bandejas reales de los padres (en lugar de simularse), debes ingresar tu correo y una <strong>Contraseña de Aplicación de Google de 16 caracteres</strong> (no tu contraseña normal).
                 </p>
+                {/* Brevo Quick Guide */}
+                <div className="bg-emerald-50/90 border border-emerald-300 rounded-xl p-3 text-[11px] space-y-1.5 text-slate-800">
+                  <span className="font-black text-emerald-950 block text-xs">
+                    🚀 Recomendado para Render Gratis: Brevo API (Envia a todos los padres sin dominio)
+                  </span>
+                  <p className="text-[11px] text-emerald-900 leading-tight">
+                    Brevo te permite enviar <strong>300 correos diarios gratis</strong> a cualquier acudiente por el puerto web HTTPS (443) sin bloqueos de firewall:
+                  </p>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                    <span>Entra a <a href="https://brevo.com" target="_blank" rel="noreferrer" className="text-emerald-700 underline font-bold">brevo.com</a> y regístrate gratis.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                    <span>En el menú de tu perfil (arriba a la derecha), ve a <strong>SMTP y API</strong> ➔ <strong>Claves API</strong> y crea una nueva clave.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+                    <span>Copia tu clave (empieza con <code>xkeysib-...</code>), selecciona el botón <strong>Brevo API</strong> arriba, pégala en la casilla de API Key y guarda.</span>
+                  </div>
+                </div>
+
                 <div className="bg-white/80 border border-amber-300 rounded-xl p-3 text-[11px] space-y-1.5 text-slate-800">
                   <span className="font-bold text-slate-900 block">Pasos para activar envíos reales con Gmail (toma 1 minuto):</span>
                   <div className="flex items-start gap-1.5">
@@ -332,24 +363,43 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <label className="text-xs font-bold text-slate-700 block mb-2">
                   Seleccionar Proveedor Rápido:
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => applyPreset('resend')}
+                    onClick={() => applyPreset('brevo')}
                     className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      formData.smtp_host === 'api.resend.com'
+                      formData.smtp_host === 'api.brevo.com'
                         ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-500/20'
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                     }`}
                   >
                     <div className="font-extrabold text-xs flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
-                        <span>Resend API</span>
-                        <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">Render</span>
+                        <span>Brevo API</span>
+                        <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">Top</span>
                       </span>
-                      {formData.smtp_host === 'api.resend.com' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                      {formData.smtp_host === 'api.brevo.com' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                     </div>
-                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">HTTPS 443 (Sin bloqueos)</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">Sin dominio • Render OK</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('resend')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      formData.smtp_host === 'api.resend.com'
+                        ? 'border-blue-500 bg-blue-50/80 text-blue-900 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-xs flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span>Resend API</span>
+                        <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">Render</span>
+                      </span>
+                      {formData.smtp_host === 'api.resend.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">Requiere dominio</span>
                   </button>
 
                   <button
@@ -365,7 +415,7 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       <span>Gmail Escolar</span>
                       {formData.smtp_host === 'smtp.gmail.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
-                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">Uso local o plan pago</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">Uso local / PC colegio</span>
                   </button>
 
                   <button
@@ -388,14 +438,14 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     type="button"
                     onClick={() => applyPreset('custom')}
                     className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com'
+                      formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com' && formData.smtp_host !== 'api.brevo.com'
                         ? 'border-blue-500 bg-blue-50/80 text-blue-900 ring-2 ring-blue-500/20'
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                     }`}
                   >
                     <div className="font-extrabold text-xs flex items-center justify-between">
                       <span>Servidor Propio</span>
-                      {formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                      {formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com' && formData.smtp_host !== 'api.brevo.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
                     <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">cPanel / SendGrid</span>
                   </button>
@@ -453,14 +503,24 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">
-                      {formData.smtp_host === 'api.resend.com' ? 'API Key de Resend (empieza con re_):' : 'Contraseña de Aplicación:'}
+                      {formData.smtp_host === 'api.brevo.com'
+                        ? 'API Key de Brevo (empieza con xkeysib-):'
+                        : formData.smtp_host === 'api.resend.com'
+                        ? 'API Key de Resend (empieza con re_):'
+                        : 'Contraseña de Aplicación / SMTP:'}
                     </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={formData.smtp_pass}
                         onChange={(e) => setFormData({ ...formData, smtp_pass: e.target.value })}
-                        placeholder={formData.smtp_host === 'api.resend.com' ? 're_123456789...' : '16 caracteres (ej: abcd efgh ijkl mnop)'}
+                        placeholder={
+                          formData.smtp_host === 'api.brevo.com'
+                            ? 'xkeysib-...'
+                            : formData.smtp_host === 'api.resend.com'
+                            ? 're_123456789...'
+                            : '16 caracteres (ej: abcd efgh ijkl mnop)'
+                        }
                         className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono text-slate-800 focus:outline-hidden focus:border-blue-500 pr-9"
                       />
                       <button
@@ -472,7 +532,9 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       </button>
                     </div>
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      {formData.smtp_host === 'api.resend.com' 
+                      {formData.smtp_host === 'api.brevo.com'
+                        ? 'Crea tu clave gratis en brevo.com > SMTP y API > Claves API y pégala aquí (permite enviar a todos los acudientes sin dominio propio).'
+                        : formData.smtp_host === 'api.resend.com'
                         ? 'Crea tu clave gratis en resend.com/api-keys y pégala aquí.'
                         : 'En Gmail: Cuenta Google &gt; Seguridad &gt; Contraseñas de aplicaciones.'}
                     </span>
