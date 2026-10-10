@@ -327,6 +327,49 @@ export function generateAbsenceEmailHtml(params: {
 }
 
 /**
+ * Creates an optimal nodemailer transporter that automatically uses service: 'gmail'
+ * with direct SSL on port 465 to prevent timeouts on cloud platforms like Render.
+ */
+function createOptimalTransporter(params: {
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  user: string;
+  pass: string;
+}) {
+  const isGmail = (params.host || '').includes('gmail') || (params.user || '').endsWith('@gmail.com');
+
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: params.user,
+        pass: params.pass
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
+    });
+  }
+
+  return nodemailer.createTransport({
+    host: params.host || 'smtp.gmail.com',
+    port: Number(params.port) || 587,
+    secure: Boolean(params.secure),
+    auth: {
+      user: params.user,
+      pass: params.pass
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+}
+
+/**
  * Sends an email notification to the guardian upon entry
  */
 export async function sendGuardianAttendanceEmail(params: {
@@ -421,17 +464,12 @@ export async function sendGuardianAttendanceEmail(params: {
   // If real credentials are provided, attempt live SMTP dispatch
   if (smtpUser && smtpPass && !isDemoCredential) {
     try {
-      const transporter = nodemailer.createTransport({
+      const transporter = createOptimalTransporter({
         host: smtpHost,
         port: smtpPort,
         secure: smtpSecure,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
+        user: smtpUser,
+        pass: smtpPass
       });
 
       await transporter.sendMail({
@@ -563,17 +601,12 @@ export async function sendGuardianAbsenceEmail(params: {
 
   if (smtpUser && smtpPass && !isDemoCredential) {
     try {
-      const transporter = nodemailer.createTransport({
+      const transporter = createOptimalTransporter({
         host: smtpHost,
         port: smtpPort,
         secure: smtpSecure,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass
-        },
-        tls: {
-          rejectUnauthorized: false
-        }
+        user: smtpUser,
+        pass: smtpPass
       });
 
       await transporter.sendMail({
@@ -669,17 +702,12 @@ export async function testSmtpConnection(
   }
 
   try {
-    const transporter = nodemailer.createTransport({
+    const transporter = createOptimalTransporter({
       host: config.smtp_host || 'smtp.gmail.com',
       port: Number(config.smtp_port) || 587,
       secure: config.smtp_secure,
-      auth: {
-        user: config.smtp_user,
-        pass: config.smtp_pass
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
+      user: userClean,
+      pass: passClean
     });
 
     await transporter.verify();
