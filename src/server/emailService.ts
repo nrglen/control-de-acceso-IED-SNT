@@ -338,6 +338,55 @@ function lookupIPv4(hostname: string, options: any, callback: any) {
 }
 
 /**
+ * Dispatches email via Resend REST API (HTTPS port 443 - 100% compatible with Render free tier)
+ */
+async function sendViaResend(params: {
+  apiKey: string;
+  senderName: string;
+  senderEmail: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<EmailSendResult> {
+  try {
+    const fromAddress = params.senderEmail && params.senderEmail.includes('@') && !params.senderEmail.includes('gmail.com')
+      ? `"${params.senderName}" <${params.senderEmail}>`
+      : `"${params.senderName}" <onboarding@resend.dev>`;
+
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${params.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [params.to],
+        subject: params.subject,
+        html: params.html
+      })
+    });
+
+    const data: any = await res.json();
+    if (res.ok && data.id) {
+      return {
+        success: true,
+        message: `¡Correo enviado exitosamente vía Resend API (HTTPS) a ${params.to}!`
+      };
+    }
+    return {
+      success: false,
+      message: `Error de Resend: ${data.message || JSON.stringify(data)}`
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Error conectando a Resend API: ${err.message}`
+    };
+  }
+}
+
+/**
  * Creates an optimal nodemailer transporter that automatically uses service: 'gmail'
  * with direct SSL on port 465 to prevent timeouts on cloud platforms like Render.
  */
@@ -483,8 +532,26 @@ export async function sendGuardianAttendanceEmail(params: {
     acudienteNombre
   });
 
-  // If real credentials are provided, attempt live SMTP dispatch
+  // If real credentials are provided, attempt live dispatch
   if (smtpUser && smtpPass && !isDemoCredential) {
+    if (smtpPass.startsWith('re_')) {
+      const resendRes = await sendViaResend({
+        apiKey: smtpPass,
+        senderName,
+        senderEmail,
+        to: acudienteCorreo,
+        subject,
+        html: htmlContent
+      });
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, resendRes.success ? 'enviado' : 'error', `${fecha} ${hora}`, resendRes.message]
+        );
+      } catch (e) {}
+      return resendRes;
+    }
+
     try {
       const transporter = createOptimalTransporter({
         host: smtpHost,
@@ -518,8 +585,8 @@ export async function sendGuardianAttendanceEmail(params: {
       let friendlyError = err.message || 'Error de conexión con el servidor SMTP.';
       if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted') || err.message.includes('BadCredentials'))) {
         friendlyError = 'Gmail rechazó las credenciales (Error 535). Recuerda que Google exige usar una "Contraseña de Aplicación" de 16 letras (no tu contraseña habitual de Gmail) y tener la Verificación en 2 pasos activada en tu cuenta de Google.';
-      } else if (err.message && err.message.includes('ETIMEDOUT')) {
-        friendlyError = 'Tiempo de espera agotado al conectar al servidor SMTP. Verifica que el puerto 587 o el host sean correctos.';
+      } else if (err.message && (err.message.includes('timeout') || err.message.includes('ETIMEDOUT') || err.message.includes('Connection timeout'))) {
+        friendlyError = 'Render (Plan Gratuito) bloquea los puertos SMTP salientes (465 y 587) por política de firewall. Para enviar desde Render gratis sin bloqueos, usa una clave gratuita de Resend (https://resend.com) o ejecuta la app localmente en el colegio.';
       }
 
       console.error('[CORREO SMTP - Falló despacho en vivo]:', friendlyError);
@@ -624,6 +691,24 @@ export async function sendGuardianAbsenceEmail(params: {
   const nowTime = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
   if (smtpUser && smtpPass && !isDemoCredential) {
+    if (smtpPass.startsWith('re_')) {
+      const resendRes = await sendViaResend({
+        apiKey: smtpPass,
+        senderName,
+        senderEmail,
+        to: acudienteCorreo,
+        subject,
+        html: htmlContent
+      });
+      try {
+        run(
+          'INSERT INTO email_logs (estudiante_nombre, acudiente_correo, asunto, estado, fecha_hora, detalles) VALUES (?, ?, ?, ?, ?, ?)',
+          [estudianteNombre, acudienteCorreo, subject, resendRes.success ? 'enviado' : 'error', `${fecha} ${nowTime}`, resendRes.message]
+        );
+      } catch (e) {}
+      return resendRes;
+    }
+
     try {
       const transporter = createOptimalTransporter({
         host: smtpHost,
@@ -655,6 +740,8 @@ export async function sendGuardianAbsenceEmail(params: {
       let friendlyError = err.message || 'Error de conexión con el servidor SMTP.';
       if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted'))) {
         friendlyError = 'Gmail rechazó las credenciales (Error 535). Recuerda que Google exige usar una "Contraseña de Aplicación" de 16 letras con Verificación en 2 pasos activa.';
+      } else if (err.message && (err.message.includes('timeout') || err.message.includes('ETIMEDOUT') || err.message.includes('Connection timeout'))) {
+        friendlyError = 'Render (Plan Gratuito) bloquea los puertos SMTP salientes (465 y 587) por política de firewall. Para enviar desde Render gratis sin bloqueos, usa una clave gratuita de Resend (https://resend.com) o ejecuta la app localmente en el colegio.';
       }
       console.error('[CORREO INASISTENCIA SMTP - Falló despacho en vivo]:', friendlyError);
       try {
@@ -708,6 +795,28 @@ export async function testSmtpConnection(
   const userClean = (rawUser && !rawUser.includes('sannicolas')) ? rawUser : 'nadinsonramos@gmail.com';
   const passClean = (rawPass && !rawPass.includes('demo') && rawPass !== '••••••••') ? rawPass : 'ebqfongfsfktuxyn';
 
+  // Check if testing via Resend API (starts with re_)
+  if (passClean.startsWith('re_')) {
+    return sendViaResend({
+      apiKey: passClean,
+      senderName: config.sender_name || 'I.E. San Nicolás de Tolentino',
+      senderEmail: userClean,
+      to: testRecipient,
+      subject: '✓ Prueba Exitosa: Notificaciones I.E. San Nicolás de Tolentino (vía Resend)',
+      html: `
+        <div style="font-family:sans-serif; padding:24px; background:#fffbeb; border-radius:14px; border:2px solid #facc15; max-width:550px; margin:0 auto;">
+          <h2 style="color:#b91c1c; margin-top:0; text-transform:uppercase;">I.E. San Nicolás de Tolentino</h2>
+          <div style="padding:12px 16px; background:#f0fdf4; color:#15803d; border-radius:8px; font-weight:bold; margin-bottom:15px; border:1px solid #bbf7d0;">
+            ✓ ¡Conexión HTTPS (Puerto 443) Verificada con Éxito!
+          </div>
+          <p style="color:#334155; font-size:14px; line-height:22px;">
+            Este correo confirma que el servidor de control de asistencia escolar en Render está listo para enviar notificaciones automáticas por la API web HTTPS sin restricciones de puertos de Render.
+          </p>
+        </div>
+      `
+    });
+  }
+
   try {
     const transporter = createOptimalTransporter({
       host: config.smtp_host || 'smtp.gmail.com',
@@ -752,12 +861,12 @@ export async function testSmtpConnection(
     let friendly = err.message || 'Verifica el usuario y contraseña de aplicación.';
     if (err.message && (err.message.includes('535') || err.message.includes('Username and Password not accepted') || err.message.includes('BadCredentials'))) {
       friendly = 'Gmail rechazó la contraseña (Error 535). Recuerda que Google NO permite tu contraseña normal de Gmail. Debes activar la "Verificación en 2 pasos" y generar una "Contraseña de Aplicación" de 16 caracteres en myaccount.google.com/security.';
-    } else if (err.message && err.message.includes('ETIMEDOUT')) {
-      friendly = 'Tiempo de espera agotado al conectar al servidor SMTP. Verifica el host y puerto (587 recomendado).';
+    } else if (err.message && (err.message.includes('timeout') || err.message.includes('ETIMEDOUT') || err.message.includes('Connection timeout'))) {
+      friendly = 'Render (Plan Gratuito) bloquea los puertos SMTP salientes (25, 465 y 587) por política de firewall para evitar spam. Solución recomendada: Usa una clave gratuita de Resend (https://resend.com) que envía por el puerto web 443 (HTTPS) 100% compatible con Render Gratis, o ejecuta la app localmente en el computador del colegio.';
     }
     return {
       success: false,
-      message: `Error SMTP: ${friendly}`
+      message: `Error de Conexión: ${friendly}`
     };
   }
 }

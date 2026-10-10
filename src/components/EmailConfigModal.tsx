@@ -102,14 +102,23 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
   }, [activeTab, isOpen]);
 
   // Handle Preset Selection
-  const applyPreset = (preset: 'gmail' | 'outlook' | 'custom') => {
-    if (preset === 'gmail') {
+  const applyPreset = (preset: 'gmail' | 'resend' | 'outlook' | 'custom') => {
+    if (preset === 'resend') {
+      setFormData(prev => ({
+        ...prev,
+        smtp_host: 'api.resend.com',
+        smtp_port: 443,
+        smtp_secure: true,
+        sender_name: 'I.E. San Nicolás de Tolentino',
+        sender_email: 'onboarding@resend.dev'
+      }));
+    } else if (preset === 'gmail') {
       setFormData(prev => ({
         ...prev,
         smtp_host: 'smtp.gmail.com',
-        smtp_port: 587,
-        smtp_secure: false,
-        sender_name: 'Colegio San Nicolás de Tolentino'
+        smtp_port: 465,
+        smtp_secure: true,
+        sender_name: 'I.E. San Nicolás de Tolentino'
       }));
     } else if (preset === 'outlook') {
       setFormData(prev => ({
@@ -117,7 +126,7 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
         smtp_host: 'smtp.office365.com',
         smtp_port: 587,
         smtp_secure: false,
-        sender_name: 'Colegio San Nicolás de Tolentino'
+        sender_name: 'I.E. San Nicolás de Tolentino'
       }));
     }
   };
@@ -323,7 +332,26 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <label className="text-xs font-bold text-slate-700 block mb-2">
                   Seleccionar Proveedor Rápido:
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('resend')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      formData.smtp_host === 'api.resend.com'
+                        ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 ring-2 ring-emerald-500/20'
+                        : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-xs flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span>Resend API</span>
+                        <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-black">Render</span>
+                      </span>
+                      {formData.smtp_host === 'api.resend.com' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">HTTPS 443 (Sin bloqueos)</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => applyPreset('gmail')}
@@ -337,7 +365,7 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       <span>Gmail Escolar</span>
                       {formData.smtp_host === 'smtp.gmail.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
-                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">smtp.gmail.com : 587</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">Uso local o plan pago</span>
                   </button>
 
                   <button
@@ -350,25 +378,26 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                     }`}
                   >
                     <div className="font-extrabold text-xs flex items-center justify-between">
-                      <span>Outlook / Office 365</span>
+                      <span>Outlook / 365</span>
                       {formData.smtp_host === 'smtp.office365.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
-                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">smtp.office365.com : 587</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">smtp.office365.com</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => applyPreset('custom')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer col-span-2 sm:col-span-1 ${
-                      formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com'
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com'
                         ? 'border-blue-500 bg-blue-50/80 text-blue-900 ring-2 ring-blue-500/20'
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                     }`}
                   >
                     <div className="font-extrabold text-xs flex items-center justify-between">
                       <span>Servidor Propio</span>
+                      {formData.smtp_host !== 'smtp.gmail.com' && formData.smtp_host !== 'smtp.office365.com' && formData.smtp_host !== 'api.resend.com' && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
-                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">cPanel / SendGrid / etc.</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5 font-mono">cPanel / SendGrid</span>
                   </button>
                 </div>
               </div>
