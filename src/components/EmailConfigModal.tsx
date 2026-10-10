@@ -453,14 +453,14 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
                   <div>
                     <label className="font-bold text-slate-700 block mb-1">
-                      Contraseña de Aplicación:
+                      {formData.smtp_host === 'api.resend.com' ? 'API Key de Resend (empieza con re_):' : 'Contraseña de Aplicación:'}
                     </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={formData.smtp_pass}
                         onChange={(e) => setFormData({ ...formData, smtp_pass: e.target.value })}
-                        placeholder="16 caracteres (ej: abcd efgh ijkl mnop)"
+                        placeholder={formData.smtp_host === 'api.resend.com' ? 're_123456789...' : '16 caracteres (ej: abcd efgh ijkl mnop)'}
                         className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 font-mono text-slate-800 focus:outline-hidden focus:border-blue-500 pr-9"
                       />
                       <button
@@ -472,7 +472,9 @@ export const EmailConfigModal: React.FC<Props> = ({ isOpen, onClose }) => {
                       </button>
                     </div>
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      En Gmail: Cuenta Google &gt; Seguridad &gt; Contraseñas de aplicaciones.
+                      {formData.smtp_host === 'api.resend.com' 
+                        ? 'Crea tu clave gratis en resend.com/api-keys y pégala aquí.'
+                        : 'En Gmail: Cuenta Google &gt; Seguridad &gt; Contraseñas de aplicaciones.'}
                     </span>
                   </div>
                 </div>
