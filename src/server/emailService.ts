@@ -416,7 +416,7 @@ async function sendViaBrevo(params: {
     });
 
     const data: any = await res.json();
-    if (res.ok && (data.messageId || data.id)) {
+    if (res.ok && (data.messageId || data.messageIds || data.id)) {
       return {
         success: true,
         message: `¡Correo enviado exitosamente vía Brevo API a ${params.to}!`
