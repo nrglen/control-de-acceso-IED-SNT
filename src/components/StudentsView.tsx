@@ -90,6 +90,7 @@ export const StudentsView: React.FC<Props> = ({
     if (pendingCardUid) {
       if (isModalOpen) {
         setFormData((prev) => ({ ...prev, uid: pendingCardUid }));
+        onCancelModoRegistro();
       }
       if (cardModalStudent && !assignedCardSuccess) {
         setAssignedCardSuccess(pendingCardUid);
@@ -100,7 +101,15 @@ export const StudentsView: React.FC<Props> = ({
         }, 1800);
       }
     }
-  }, [pendingCardUid, isModalOpen, cardModalStudent, assignedCardSuccess, onRefreshStudents]);
+  }, [pendingCardUid, isModalOpen, cardModalStudent, assignedCardSuccess, onRefreshStudents, onCancelModoRegistro]);
+
+  // If a reading occurs while modal is open in registration mode, assign it immediately
+  useEffect(() => {
+    if (isModalOpen && lastLecturaState?.uid && modoInfo.modo === 'registro') {
+      setFormData((prev) => ({ ...prev, uid: lastLecturaState.uid }));
+      onCancelModoRegistro();
+    }
+  }, [lastLecturaState, isModalOpen, modoInfo.modo, onCancelModoRegistro]);
 
   // Listen to lastLecturaState if backend completed association directly
   useEffect(() => {
@@ -281,6 +290,9 @@ export const StudentsView: React.FC<Props> = ({
 
   const handleCloseModal = () => {
     stopCamera();
+    if (modoInfo.modo === 'registro') {
+      onCancelModoRegistro();
+    }
     setIsModalOpen(false);
     setEditingStudent(null);
   };
@@ -666,39 +678,96 @@ export const StudentsView: React.FC<Props> = ({
                   />
                 </div>
 
-                {/* UID Field */}
+                {/* UID Field with Direct RFID Scanner Button */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                       UID de Tarjeta RFID *
                     </label>
-                    {pendingCardUid && (
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                        Detectada
+                    {formData.uid && (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Asignada
                       </span>
                     )}
                   </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={formData.uid}
-                      onChange={(e) =>
-                        setFormData({ ...formData, uid: e.target.value.toUpperCase() })
-                      }
-                      placeholder="Ej. 8B6FD934"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold tracking-wider text-slate-900 focus:outline-hidden focus:border-blue-500 uppercase"
-                    />
-                    {formData.uid && (
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        required
+                        value={formData.uid}
+                        onChange={(e) =>
+                          setFormData({ ...formData, uid: e.target.value.toUpperCase() })
+                        }
+                        placeholder="Ej. 8B6FD934 o presiona Escanear"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold tracking-wider text-slate-900 focus:outline-hidden focus:border-blue-500 uppercase"
+                      />
+                      {formData.uid && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, uid: '' })}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Integrated Button to Start/Cancel RFID Scan */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (modoInfo.modo === 'registro') {
+                          onCancelModoRegistro();
+                        } else {
+                          onActivateModoRegistro();
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0 ${
+                        modoInfo.modo === 'registro'
+                          ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                      }`}
+                      title={modoInfo.modo === 'registro' ? 'Cancelar escaneo' : 'Activar lector RFID para asignar tarjeta'}
+                    >
+                      <Radio className={`w-3.5 h-3.5 ${modoInfo.modo === 'registro' ? 'animate-spin' : ''}`} />
+                      <span>{modoInfo.modo === 'registro' ? 'Cancelar' : 'Escanear Tarjeta'}</span>
+                    </button>
+                  </div>
+
+                  {/* Active Sensor Listening Banner */}
+                  {modoInfo.modo === 'registro' && (
+                    <div className="mt-2 p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 animate-pulse shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <Radio className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
+                        <div>
+                          <span className="font-bold block">📡 Lector activo: Acerca la tarjeta RFID al sensor</span>
+                          <span className="text-[11px] text-amber-700">
+                            La primera lectura se asignará automáticamente a este estudiante ({modoInfo.segundos_restantes}s)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success Banner when Card Detected */}
+                  {formData.uid && modoInfo.modo !== 'registro' && (
+                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Tarjeta asignada: <code className="font-mono text-emerald-950 font-black">{formData.uid}</code></span>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setFormData({ ...formData, uid: '' })}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                        onClick={onActivateModoRegistro}
+                        className="text-[11px] text-emerald-700 hover:text-emerald-900 underline font-semibold cursor-pointer"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        Cambiar tarjeta
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

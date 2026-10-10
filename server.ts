@@ -340,6 +340,9 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
 
       // Caso B: Captura general para formulario de nuevo estudiante
       if (estudiante) {
+        tarjetaPendiente = normalizedUid;
+        currentMode = 'asistencia';
+        modoRegistroExpiry = null;
         run(
           'INSERT INTO lecturas (uid, estudiante_id, salon, asignatura, estado, fecha_hora) VALUES (?, ?, ?, ?, ?, ?)',
           [normalizedUid, estudiante.id, salon, asignatura, 'tarjeta_ya_asignada', fecha_hora]
@@ -347,10 +350,13 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
         return res.json({
           ok: true,
           estado: 'tarjeta_ya_asignada',
+          uid: normalizedUid,
           nombre: estudiante.nombre
         });
       } else {
         tarjetaPendiente = normalizedUid;
+        currentMode = 'asistencia';
+        modoRegistroExpiry = null;
         run(
           'INSERT INTO lecturas (uid, estudiante_id, salon, asignatura, estado, fecha_hora) VALUES (?, NULL, ?, ?, ?, ?)',
           [normalizedUid, salon, asignatura, 'tarjeta_capturada', fecha_hora]
