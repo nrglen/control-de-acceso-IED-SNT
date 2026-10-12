@@ -229,17 +229,17 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
         const puntualidad = calcularPuntualidad(hora, horaProgramada, appSettings.hora_limite);
         const minutosRetraso = puntualidad.minutosRetraso;
 
-        // Check if attendance already recorded today (across any salon)
-        const asistenciaHoy = queryOne<{ id: number; hora: string; hora_salida?: string }>(
-          'SELECT id, hora, hora_salida FROM asistencias WHERE estudiante_id = ? AND fecha = ?',
+        // Check if there is an active attendance session today (checked in but not checked out yet)
+        const asistenciaActiva = queryOne<{ id: number; hora: string; hora_salida?: string }>(
+          'SELECT id, hora, hora_salida FROM asistencias WHERE estudiante_id = ? AND fecha = ? AND (hora_salida IS NULL OR hora_salida = \'\') ORDER BY id DESC LIMIT 1',
           [estudiante.id, fecha]
         );
 
-        if (asistenciaHoy) {
-          // Second scan today -> Register departure (Salida)
+        if (asistenciaActiva) {
+          // Active session exists -> Register departure (Salida) and remove from active present list
           run(
             'UPDATE asistencias SET hora_salida = ? WHERE id = ?',
-            [hora, asistenciaHoy.id]
+            [hora, asistenciaActiva.id]
           );
 
           run(
@@ -277,11 +277,11 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
             profesor,
             hora_programada: horaProgramada,
             hora_salida: hora,
-            hora_entrada: asistenciaHoy.hora,
+            hora_entrada: asistenciaActiva.hora,
             minutos_retraso: 0
           });
         } else {
-          // Record attendance
+          // No active session (either first entry today or checked out previously) -> Record new entry (Ingreso / Asistencia)
           run(
             `INSERT INTO asistencias (estudiante_id, salon, asignatura, profesor, hora_programada, minutos_retraso, metodo, observacion, fecha, hora) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1961,8 +1961,8 @@ app.post('/api/whatsapp/test', async (req: Request, res: Response): Promise<any>
       return res.status(400).json({ ok: false, error: 'Debe ingresar un número de teléfono de prueba con código de país (ej. 573154261103).' });
     }
 
-    const appSettings = getAppSettings();
-    const testMsg = `🏫 *${appSettings.nombre_colegio}*\n\n✅ ¡Prueba de conexión exitosa!\nEl sistema de control de asistencias ha vinculado correctamente la cuenta de Meta WhatsApp Business con el servidor.\n\nFecha y hora: ${new Date().toLocaleString('es-CO')}`;
+    const { fecha_hora } = getLocalDateTime();
+    const testMsg = `🏫 *${appSettings.nombre_colegio}*\n\n✅ ¡Prueba de conexión exitosa!\nEl sistema de control de asistencias ha vinculado correctamente la cuenta de Meta WhatsApp Business con el servidor.\n\nFecha y hora (Bogotá): ${fecha_hora}`;
 
     let result = await sendMetaWhatsAppMessage({
       to: targetPhone,

@@ -604,12 +604,27 @@ export function normalizeUid(rawUid: string | null | undefined): string {
 
 export function getLocalDateTime() {
   const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  // Colombia is UTC-5 (standard time, no daylight saving)
-  const bogotaTime = new Date(utc + (3600000 * -5));
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  const fecha = `${bogotaTime.getFullYear()}-${pad(bogotaTime.getMonth() + 1)}-${pad(bogotaTime.getDate())}`;
-  const hora = `${pad(bogotaTime.getHours())}:${pad(bogotaTime.getMinutes())}:${pad(bogotaTime.getSeconds())}`;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = formatter.formatToParts(now);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || '00';
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  const hour = getPart('hour');
+  const minute = getPart('minute');
+  const second = getPart('second');
+
+  const fecha = `${year}-${month}-${day}`;
+  const hora = `${hour}:${minute}:${second}`;
   const fecha_hora = `${fecha} ${hora}`;
   return { fecha, hora, fecha_hora };
 }
