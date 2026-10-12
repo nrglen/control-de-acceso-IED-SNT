@@ -256,7 +256,7 @@ export async function initDatabase() {
       grado TEXT DEFAULT '6° - 1',
       salon TEXT DEFAULT 'Salón de Informática',
       asignatura TEXT DEFAULT 'Informática y Tecnología',
-      profesor TEXT DEFAULT 'Prof. Roberto Gómez',
+      profesor TEXT DEFAULT 'Mariaidilia',
       hora_entrada TEXT DEFAULT '08:30',
       minutos_tolerancia INTEGER DEFAULT 10,
       esp_endpoint_url TEXT DEFAULT '',
@@ -425,9 +425,13 @@ export async function initDatabase() {
     const settingsRow = queryOne('SELECT id FROM app_settings WHERE id = 1');
     if (!settingsRow) {
       run(`INSERT INTO app_settings (id, nombre_colegio, lema_colegio, logo_url, grado, salon, asignatura, profesor, hora_entrada, minutos_tolerancia, esp_endpoint_url, wifi_ssid_default, wifi_pass_default)
-           VALUES (1, 'I.E. SAN NICOLÁS DE TOLENTINO', 'Interioridad • Amor • Trascendencia', '/static/logo.svg', '6° - 1', 'Salón de Informática', 'Informática y Tecnología', 'Prof. Roberto Gómez', '08:30', 10, '', 'TU_NOMBRE_WIFI', 'TU_CONTRASENA_WIFI')`);
+           VALUES (1, 'I.E. SAN NICOLÁS DE TOLENTINO', 'Interioridad • Amor • Trascendencia', '/static/logo.svg', '6° - 1', 'Salón de Informática', 'Informática y Tecnología', 'Mariaidilia', '08:30', 10, '', 'TU_NOMBRE_WIFI', 'TU_CONTRASENA_WIFI')`);
     }
   } catch (e) {}
+
+  // Safe migrations for teacher name
+  try { db.run("UPDATE app_settings SET profesor = 'Mariaidilia' WHERE profesor = 'Prof. Roberto Gómez' OR profesor = '' OR profesor IS NULL;"); } catch (e) {}
+  try { db.run("UPDATE clases SET profesor = 'Mariaidilia' WHERE profesor = 'Prof. Roberto Gómez';"); } catch (e) {}
 
   // Update existing students to grade 6° - 1 if desired
   try {
@@ -439,7 +443,7 @@ export async function initDatabase() {
   if (!defaultClass) {
     run(
       'INSERT INTO clases (grado, salon, asignatura, profesor, hora_ingreso) VALUES (?, ?, ?, ?, ?)',
-      [GRADO_OFICIAL, SALON_OFICIAL, ASIGNATURA_OFICIAL, 'Prof. Roberto Gómez', HORA_OFICIAL_ENTRADA]
+      [GRADO_OFICIAL, SALON_OFICIAL, ASIGNATURA_OFICIAL, 'Mariaidilia', HORA_OFICIAL_ENTRADA]
     );
   }
 
@@ -658,7 +662,7 @@ export function getAppSettings(): AppSettings {
     grado: '6° - 1',
     salon: 'Salón de Informática',
     asignatura: 'Informática y Tecnología',
-    profesor: 'Prof. Roberto Gómez',
+    profesor: 'Mariaidilia',
     hora_entrada: '08:30',
     minutos_tolerancia: 10,
     esp_endpoint_url: '',
@@ -809,6 +813,10 @@ export function updateAppSettings(settings: Partial<AppSettings>) {
       updated.hora_finalizacion
     ]
   );
+
+  try {
+    run('UPDATE clases SET profesor = ?', [updated.profesor]);
+  } catch (e) {}
 
   return getAppSettings();
 }

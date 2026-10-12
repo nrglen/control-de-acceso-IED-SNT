@@ -224,7 +224,7 @@ app.post('/api/lectura', (req: Request, res: Response): any => {
           [salon, estudiante.grado]
         );
 
-        const profesor = clase ? clase.profesor : (appSettings.profesor || 'Prof. Roberto Gómez');
+        const profesor = (appSettings.profesor && appSettings.profesor.trim()) || (clase ? clase.profesor : 'Mariaidilia');
         const horaProgramada = appSettings.hora_entrada || HORA_OFICIAL_ENTRADA;
         const puntualidad = calcularPuntualidad(hora, horaProgramada, appSettings.hora_limite);
         const minutosRetraso = puntualidad.minutosRetraso;
@@ -500,7 +500,7 @@ app.get('/api/ultima-lectura', (_req: Request, res: Response) => {
       l.estado, 
       l.salon, 
       COALESCE(l.asignatura, 'Informática y Tecnología') as asignatura,
-      COALESCE(l.profesor, 'Prof. Roberto Gómez') as profesor,
+      COALESCE(l.profesor, (SELECT profesor FROM app_settings WHERE id = 1), 'Mariaidilia') as profesor,
       COALESCE(l.hora_programada, '08:30') as hora_programada,
       COALESCE(l.minutos_retraso, 0) as minutos_retraso,
       COALESCE(l.metodo, 'rfid') as metodo,
@@ -1698,13 +1698,16 @@ app.post('/api/email/send-manual', async (req: Request, res: Response): Promise<
     const studentGrade = grado || targetStudent?.grado || '6° - 1';
     const delay = Number(minutos_retraso) || 0;
 
+    const appSettings = getAppSettings();
+    const resolvedProfesor = profesor || appSettings.profesor || 'Mariaidilia';
+
     const result = await sendGuardianAttendanceEmail({
       estudianteNombre: studentName,
       estudianteCodigo: studentCode,
       grado: studentGrade,
       salon: salon || 'Salón de Informática',
       asignatura: asignatura || 'Informática y Tecnología',
-      profesor: profesor || 'Prof. Roberto Gómez',
+      profesor: resolvedProfesor,
       fecha: fecha || getLocalDateTime().fecha,
       hora: hora || getLocalDateTime().hora,
       esTarde: delay > 0,
@@ -1737,6 +1740,9 @@ app.post('/api/email/send-absence-single', async (req: Request, res: Response): 
       return res.status(400).json({ success: false, message: `El estudiante ${student.nombre} no tiene correo de acudiente registrado.` });
     }
 
+    const appSettings = getAppSettings();
+    const resolvedProfesor = profesor || appSettings.profesor || 'Mariaidilia';
+
     const { fecha: todayDate } = getLocalDateTime();
     const result = await sendGuardianAbsenceEmail({
       estudianteNombre: student.nombre,
@@ -1744,7 +1750,7 @@ app.post('/api/email/send-absence-single', async (req: Request, res: Response): 
       grado: student.grado || '6° - 1',
       salon: salon || 'Salón de Informática',
       asignatura: asignatura || 'Informática y Tecnología',
-      profesor: profesor || 'Prof. Roberto Gómez',
+      profesor: resolvedProfesor,
       fecha: fecha || todayDate,
       horaLimite: hora_limite || '08:40 AM',
       acudienteNombre: student.acudiente_nombre || 'Padre / Acudiente',
@@ -1792,6 +1798,9 @@ app.post('/api/email/notify-absences', async (req: Request, res: Response): Prom
     const results = [];
     let successCount = 0;
 
+    const appSettings = getAppSettings();
+    const resolvedProfesor = profesor || appSettings.profesor || 'Mariaidilia';
+
     for (const student of absentStudents) {
       if (student.acudiente_correo && student.acudiente_correo.includes('@')) {
         const sendRes = await sendGuardianAbsenceEmail({
@@ -1800,7 +1809,7 @@ app.post('/api/email/notify-absences', async (req: Request, res: Response): Prom
           grado: student.grado || '6° - 1',
           salon: salon || 'Salón de Informática',
           asignatura: asignatura || 'Informática y Tecnología',
-          profesor: profesor || 'Prof. Roberto Gómez',
+          profesor: resolvedProfesor,
           fecha: targetFecha,
           horaLimite: hora_limite || '08:40 AM',
           acudienteNombre: student.acudiente_nombre || 'Padre / Acudiente',
