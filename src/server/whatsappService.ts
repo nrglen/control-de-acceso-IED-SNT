@@ -264,9 +264,18 @@ export interface RecentWhatsAppDispatch {
 const recentDispatches: RecentWhatsAppDispatch[] = [];
 
 export function recordRecentDispatch(dispatch: Omit<RecentWhatsAppDispatch, 'id' | 'timestamp'>): RecentWhatsAppDispatch {
+  const now = new Date();
+  const timeStr = new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).format(now);
+
   const item: RecentWhatsAppDispatch = {
     id: `wa-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    timestamp: timeStr,
     ...dispatch
   };
   recentDispatches.unshift(item);
