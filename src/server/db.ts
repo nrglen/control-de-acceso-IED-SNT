@@ -604,14 +604,12 @@ export function normalizeUid(rawUid: string | null | undefined): string {
 
 export function getLocalDateTime() {
   const now = new Date();
-  const optionsDate: Intl.DateTimeFormatOptions = { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' };
-  const optionsTime: Intl.DateTimeFormatOptions = { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-  
-  const dateFormatter = new Intl.DateTimeFormat('en-CA', optionsDate); // yyyy-mm-dd
-  const timeFormatter = new Intl.DateTimeFormat('en-GB', optionsTime); // hh:mm:ss
-  
-  const fecha = dateFormatter.format(now);
-  const hora = timeFormatter.format(now);
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  // Colombia is UTC-5 (standard time, no daylight saving)
+  const bogotaTime = new Date(utc + (3600000 * -5));
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const fecha = `${bogotaTime.getFullYear()}-${pad(bogotaTime.getMonth() + 1)}-${pad(bogotaTime.getDate())}`;
+  const hora = `${pad(bogotaTime.getHours())}:${pad(bogotaTime.getMinutes())}:${pad(bogotaTime.getSeconds())}`;
   const fecha_hora = `${fecha} ${hora}`;
   return { fecha, hora, fecha_hora };
 }
