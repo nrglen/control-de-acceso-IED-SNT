@@ -39,9 +39,11 @@ export const ManualAttendanceModal: React.FC<Props> = ({
   const [profesor, setProfesor] = useState(appSettings?.profesor || 'Prof. Roberto Gómez');
   const [horaIngreso, setHoraIngreso] = useState(appSettings?.hora_entrada || '08:30');
   const [horaLlegada, setHoraLlegada] = useState(() => {
-    const d = new Date();
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const bogotaTime = new Date(utc + (3600000 * -5));
     const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    return `${pad(bogotaTime.getHours())}:${pad(bogotaTime.getMinutes())}:${pad(bogotaTime.getSeconds())}`;
   });
   const [motivo, setMotivo] = useState('Tarjeta olvidada en casa');
   const [clases, setClases] = useState<ClaseHorario[]>([]);
